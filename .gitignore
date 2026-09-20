@@ -1,0 +1,9 @@
+.openai/
+
+# Archive files are not source artifacts.
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
