@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07131d">
+  <meta name="description" content="Ledgerly is a mobile-first personal finance demo for automatic transaction capture, review, and account visibility.">
+  <title>Ledgerly — personal finance demo</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%2374f0d2'/%3E%3Cstop offset='1' stop-color='%23728cff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='17' fill='%2309141f'/%3E%3Cpath d='M18 16v32h28' fill='none' stroke='url(%23g)' stroke-width='7' stroke-linecap='round'/%3E%3Ccircle cx='46' cy='18' r='5' fill='%23ffbd70'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"><i></i><i></i></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">L</span><span>Ledgerly</span></div>
+      <nav class="side-nav" aria-label="Primary navigation">
+        <button class="nav-item active" data-view="home"><span>⌂</span>Overview</button>
+        <button class="nav-item" data-view="accounts"><span>▣</span>Accounts</button>
+        <button class="nav-item" data-view="settings"><span>⚙</span>Settings</button>
+      </nav>
+      <div class="trust-note"><strong>Private by design</strong><span>Every record explains where it came from.</span></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><p class="eyebrow" id="todayLabel">20 September 2026</p><h1 id="pageTitle">Good afternoon, Antonio</h1></div>
+        <button class="avatar" data-view="settings" aria-label="Open Antonio's profile">A</button>
+      </header>
+
+      <section class="view active" id="homeView">
+        <div class="home-grid">
+          <article class="hero glass span-all">
+            <div class="control-row">
+              <div class="segmented" aria-label="Time period">
+                <button data-period="week">Week</button>
+                <button class="active" data-period="month">Month</button>
+              </div>
+              <label class="source-select"><span class="sr-only">Account source</span><select id="sourceFilter"></select></label>
+            </div>
+            <div class="balance-block"><p>Available balance</p><strong id="availableBalance">€0.00</strong><span id="balanceContext">Across all included accounts</span></div>
+            <div class="flow-head"><div><h2>Income and spending</h2><p id="chartPeriodLabel">September by week · confirmed records</p></div><div class="legend"><span><i class="income-key"></i>Income</span><span><i class="expense-key"></i>Spending</span></div></div>
+            <div class="cashflow-chart" id="cashflowChart" aria-label="Income and spending chart"></div>
+          </article>
+
+          <section class="sticky-summary span-all" id="stickySummary">
+            <button class="summary-cell" id="netFlowCell"><small>Net flow · <span id="periodLabel">September</span></small><strong id="netFlow">€0.00</strong></button>
+            <button class="summary-cell" id="pendingShortcut"><small>Pending approvals</small><strong id="pendingCount">0</strong></button>
+          </section>
+
+          <section class="section span-all" aria-labelledby="categoriesTitle">
+            <div class="section-head"><div><p class="eyebrow">Where money went</p><h2 id="categoriesTitle">Top spending categories</h2></div><span class="section-meta" id="categoryPeriod">This month</span></div>
+            <div class="category-list" id="categoryList"></div>
+          </section>
+
+          <section class="section span-all history-section" id="historySection" aria-labelledby="historyTitle">
+            <div class="section-head"><div><p class="eyebrow">Compact ledger</p><h2 id="historyTitle">Recent history</h2></div><span class="section-meta" id="historyResultCount"></span></div>
+            <div class="history-toolbar glass">
+              <label class="search-field"><span aria-hidden="true">⌕</span><input id="historySearch" type="search" placeholder="Search merchant, category, or source" aria-label="Search recent history"></label>
+              <div class="filter-chips" id="statusFilters" aria-label="Transaction status filters">
+                <button class="active" data-status="all">All</button>
+                <button data-status="pending">Needs review</button>
+                <button data-status="confirmed">Confirmed</button>
+              </div>
+            </div>
+            <div class="history-list" id="historyList"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="accountsView">
+        <div class="page-intro"><p class="eyebrow">Sources and coverage</p><h2>Accounts</h2><p>See which sources make up your available balance and when each was last updated.</p></div>
+        <article class="account-summary glass"><span>Total available</span><strong id="accountsTotal">€0.00</strong><small id="accountsSummaryMeta">3 included sources</small></article>
+        <div class="account-list" id="accountList"></div>
+      </section>
+
+      <section class="view" id="settingsView">
+        <div class="page-intro"><p class="eyebrow">Your preferences</p><h2>Profile & settings</h2><p>Manage personal details, connected sources, and your data.</p></div>
+        <article class="profile-card"><div class="avatar large">A</div><div><strong>Antonio Escobedo</strong><span>antonio@ledgerly.demo</span></div><button class="text-button" data-demo-action="Profile editing">Edit</button></article>
+        <article class="privacy-banner"><strong>You decide what stays connected.</strong><p>Disconnecting stops future capture. Stored history can be exported or deleted separately.</p></article>
+        <div class="settings-group">
+          <button><span class="setting-icon">◌</span><span><strong>Connected sources</strong><small>2 automated · 1 manual</small></span><b>›</b></button>
+          <button><span class="setting-icon">⌁</span><span><strong>Categories & rules</strong><small>12 learned suggestions</small></span><b>›</b></button>
+          <button><span class="setting-icon">⌑</span><span><strong>Notifications</strong><small>Daily review reminder at 18:00</small></span><b>›</b></button>
+        </div>
+        <div class="settings-group data-actions">
+          <button><span class="setting-icon">⇩</span><span><strong>Export my data</strong><small>Download your records</small></span><b>›</b></button>
+          <button><span class="setting-icon">⌫</span><span><strong>Delete account</strong><small>Remove account and stored information</small></span><b>›</b></button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Primary navigation">
+    <button class="nav-item active" data-view="home"><span>⌂</span>Home</button>
+    <button class="nav-item" data-view="accounts"><span>▣</span>Accounts</button>
+    <button class="nav-item" data-view="settings"><span>⚙</span>Settings</button>
+  </nav>
+
+  <div class="drawer-layer" id="drawerLayer" aria-hidden="true">
+    <button class="drawer-backdrop" id="drawerBackdrop" aria-label="Close details"></button>
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-handle"></div>
+      <header class="drawer-header"><div><p class="eyebrow" id="drawerEyebrow">Details</p><h2 id="drawerTitle">Details</h2></div><button class="close-button" id="closeDrawer" aria-label="Close details">×</button></header>
+      <div class="drawer-content" id="drawerContent"></div>
+    </aside>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
