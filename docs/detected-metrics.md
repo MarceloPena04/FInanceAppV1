@@ -1,0 +1,39 @@
+# Detected metrics decision table (Sprint 1)
+
+These calculations describe detected activity from the fictional sources that
+were processed. They are not a bank balance, total finances, net worth, or a
+claim that every account or transaction was found.
+
+| Active event type with amount and currency | Detected inflow | Detected outflow | Detected net flow |
+| --- | ---: | ---: | ---: |
+| purchase | 0 | amount | negative amount |
+| income | amount | 0 | positive amount |
+| refund | amount | 0 | positive amount; kept as a refund |
+| reversal | amount when the source says money returned | 0 | positive amount |
+| withdrawal | 0 | 0 | 0; movement to cash is not global spending |
+| transfer | 0 | 0 | 0; do not invent an account ledger |
+| unknown, with amount and currency | 0 | 0 | 0 in ordinary flow; separately labelled provisional outflow of amount |
+| excluded or soft-deleted | 0 | 0 | 0 |
+
+Candidates needing confirmation still contribute when their amount, currency,
+and event impact are known. Metrics expose that pending review separately.
+An unknown-type amount-and-currency candidate is the narrow approved exception:
+it contributes only to a separately labelled provisional-outflow field, remains
+unknown, and cannot be confirmed until a person classifies it.
+Missing-currency candidates remain reviewable but are not put in any
+currency-based total. Exact source duplicates and explicitly marked duplicates
+have one impact; a `possible_duplicate_of` relationship remains counted until a
+future, evidence-backed review decision resolves it.
+
+For Sprint 1, an exact cross-source merge has one impact only when both sources
+provide the full exact fingerprint: timestamp with time-of-day precision,
+amount, currency, event type, and normalized merchant, plus matching
+account/payment-instrument identity when both provide one. A pending and a
+finalized observation have one impact only when they share an explicit
+transaction/reference identity. An unmatched pending observation stays active,
+reviewable, and counted. No learned matching window, fuzzy score, or real-source
+behavior is part of these calculations.
+
+Open decisions: whether future real source formats can safely supply the exact
+fingerprint/reference fields, retention for soft-deleted data, recurring-event
+UX, real-data privacy, and any future account/balance model.
