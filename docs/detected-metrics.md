@@ -19,7 +19,7 @@ Candidates needing confirmation still contribute when their amount, currency,
 and event impact are known. Metrics expose that pending review separately.
 An unknown-type amount-and-currency candidate is the narrow approved exception:
 it contributes only to a separately labelled provisional-outflow field, remains
-unknown, and cannot be confirmed until a person classifies it.
+unknown before confirmation. Confirmation accepts a generic expense as the person's decision, retaining the unknown source observation.
 Missing-currency candidates remain reviewable but are not put in any
 currency-based total. Exact source duplicates and explicitly marked duplicates
 have one impact; a `possible_duplicate_of` relationship remains counted until a
@@ -37,3 +37,11 @@ behavior is part of these calculations.
 Open decisions: whether future real source formats can safely supply the exact
 fingerprint/reference fields, retention for soft-deleted data, recurring-event
 UX, real-data privacy, and any future account/balance model.
+
+After confirmation, accepted generic expense is ordinary detected outflow; the provisional bucket goes to zero for that event. A missing source currency can receive a chosen app default or opt-in source-profile rule only on confirmation. Explicit source currency and user edit take precedence. Missing amount remains outside totals. Later conflicting metadata is held for review before replacing an accepted default.
+
+## Reporting currency
+
+The Sprint 1 demo presents one selected reporting currency for all-time and weekly views. Each eligible event is classified first, suppressed if excluded or resolved as a duplicate, and then converted once with the versioned fictional table in `src/domain/reporting-currency.ts`. Totals sum converted integer minor units. The interface exposes the source amount, converted amount, rate formula, rate version, and whether currency came from source, user correction, source profile, or chosen default. Conversion does not alter source facts and the table is test data, not a live exchange rate.
+
+Pending monetary review is the sum of pending included flow-impact events in that reporting currency. The selected-week amount and elsewhere-in-history amount are disjoint and sum to the all-time amount. Neutral movements and duplicate-suppressed records may still appear for individual decisions, but add zero to these amounts. Bulk confirmation of ready records may leave detected net flow unchanged because pending known activity was already included.

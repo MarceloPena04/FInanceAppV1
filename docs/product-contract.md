@@ -28,7 +28,7 @@ The pipeline is `source adapter → eligibility check → source-specific extrac
 - **System interpretation:** suggested display title/category and confidence or review reason. These fields never masquerade as observed facts.
 - **User decision:** accepted, corrected, excluded, or pending, with corrected display fields kept separately. Preserve the original observed facts and a minimal history of changes.
 
-No candidate reaches a monetary summary without a valid amount, currency, and applicable date. The approved exception is an explicitly labelled provisional outflow for an amount-and-currency candidate whose event kind remains `unknown`; it stays ineligible for confirmation until a person classifies it. Refunds and transfers need explicit treatment; do not silently classify a refund as income or a transfer as spending. A summary must not add different currencies together.
+No candidate reaches a monetary summary without a valid amount, an effective currency, and an applicable date. A person may choose one fictional-demo default currency for confirmation when source currency is absent. The approved exception is an explicitly labelled provisional outflow for an amount-and-currency candidate whose event kind remains `unknown`; before confirmation it stays separate; confirmation without a type accepts generic expense as a user decision while preserving source unknown. Refunds and transfers need explicit treatment; do not silently classify a refund as income or a transfer as spending. A summary must not add different currencies together.
 
 ## Invariants
 
@@ -54,4 +54,16 @@ With fictional data, a user can identify what the source actually said, correct 
 
 ## Current repository truth
 
-As inspected on 2026-09-29, `src/app/page.tsx` is a single client-side mock with hard-coded balances, accounts, transactions, and chart values. It has local interaction state but no evidenced capture pipeline or persistence. The fixture-only lifecycle now proves deterministic replay, exact duplicate, possible-duplicate, and referenced pending/finalized rules in memory; it does not make the screen functional, durable, or connected to a real source. Its claims about connected accounts, sync, encryption, and balances remain demo copy, not implemented capabilities.
+As inspected on 2026-09-30, `src/app/page.tsx` runs the committed fictional captures through the shared parser, lifecycle, persistence, review actions, duplicate decisions, and reporting calculation. The screen is a browser-local Sprint 1 demo: its state survives refresh in that browser profile and exact replay does not duplicate events or undo decisions. Clearing browser storage, using another browser/device, or resetting the demo loses that local state. It has no live source connection, account ledger, verified balance, complete-finances coverage, or multi-user durability.
+
+## 2026-09-30 confirmation amendment
+
+Confirm, Save and confirm, and bulk confirmation use one domain rule. Unknown source type becomes a user-accepted generic expense at confirmation; absent source currency uses the person's chosen app default, unless an opt-in source-profile rule exists. Precedence is user edit > explicit source currency > opt-in source-profile rule > chosen app default. Neither default fills a missing amount. Source facts remain unchanged. Conflicting later source evidence returns the event to review and holds the accepted money impact until the person accepts the change. See `docs/fictional-scenario-manifest.md` and `tests/domain/fictional-scenario.test.mjs`.
+
+## 2026-09-30 reporting-currency amendment
+
+The demo has one person-chosen reporting currency. All-time and weekly totals use the same `reporting-currency.ts` calculation after lifecycle decisions; the screen has no parallel arithmetic. Conversion happens once per active event after corrections/defaults and duplicate suppression, using the fixed fictional versioned rates listed in `docs/fictional-scenario-manifest.md`. The trace always shows the source amount/currency, converted amount, rate version, and currency basis. Changing the reporting currency changes presentation and totals, never source evidence.
+
+## Final review correction
+
+Only pending flow-impact records with no attention reason enter Ready to confirm. Confirm selected and Confirm all ready act on that group across all history, writing one action per transaction. Possible duplicates, conflicting evidence, unknown type, missing source currency, and neutral movements require individual review. The selected-week and elsewhere amounts partition the same shared reporting calculation; neutral and suppressed records carry no pending money value. An unresolved possible pair has two top-level records. Same transaction suppresses the relationship child in normal activity while preserving both notices under the retained target; it does not confirm that target. Keep as separate and Undo remain reversible. Activity uses text and color tags to distinguish income, expenses, and neutral movements. See `src/domain/review-queue.ts` and `tests/domain/review-queue.test.mjs`.

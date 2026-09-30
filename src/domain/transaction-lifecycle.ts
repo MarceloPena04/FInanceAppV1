@@ -12,6 +12,7 @@ export type DeletionState = "active" | "soft_deleted";
 export type TransactionRelationshipKind =
   | "duplicate_of"
   | "possible_duplicate_of"
+  | "separate_from"
   | "refund_of"
   | "reverses"
   | "settlement_update_of";
@@ -57,7 +58,7 @@ export interface SystemTransactionInterpretation {
 export interface ReviewAction {
   id: string;
   at: string;
-  kind: "confirmed" | "excluded" | "restored" | "edited" | "duplicate_decision";
+  kind: "confirmed" | "confirmation_undone" | "excluded" | "restored" | "edited" | "duplicate_decision" | "evidence_update";
   detail: string;
 }
 
@@ -79,6 +80,8 @@ export interface TransactionLifecycle {
   attentionReasons: string[];
   /** Kept with an active event only; permanent deletion removes this history. */
   actionHistory?: ReviewAction[];
+  acceptedDefaults?: { eventType?: "generic_expense"; currency?: string; currencyBasis?: "source_profile_rule" | "chosen_app_default" };
+  evidenceConflict?: string;
 }
 
 export interface EffectiveTransactionValues {
@@ -86,7 +89,7 @@ export interface EffectiveTransactionValues {
   currency?: string;
   merchantText?: string;
   occurredAt?: string;
-  eventType: TransactionKind;
+  eventType: TransactionKind | "generic_expense";
 }
 
 export interface CurrencyDetectedMetrics {
@@ -101,7 +104,7 @@ export interface CurrencyDetectedMetrics {
     detectedOutflowMinor: number;
     detectedInflowMinor: number;
   };
-  byEventType: Partial<Record<TransactionKind, { inflowMinor: number; outflowMinor: number }>>;
+  byEventType: Partial<Record<TransactionKind | "generic_expense", { inflowMinor: number; outflowMinor: number }>>;
 }
 
 export interface DetectedMetrics {
@@ -266,8 +269,8 @@ export function effectiveValues(record: TransactionLifecycle): EffectiveTransact
     ...(record.userOverrides.amountMinor !== undefined
       ? { amountMinor: record.userOverrides.amountMinor }
       : record.interpretation.amountMinor !== undefined && { amountMinor: record.interpretation.amountMinor }),
-    ...(record.userOverrides.currency ?? record.interpretation.currency
-      ? { currency: record.userOverrides.currency ?? record.interpretation.currency }
+    ...(record.userOverrides.currency ?? (record.evidenceConflict ? record.acceptedDefaults?.currency : undefined) ?? record.interpretation.currency ?? record.acceptedDefaults?.currency
+      ? { currency: record.userOverrides.currency ?? (record.evidenceConflict ? record.acceptedDefaults?.currency : undefined) ?? record.interpretation.currency ?? record.acceptedDefaults?.currency }
       : {}),
     ...(record.userOverrides.merchantLabel !== undefined
       ? { merchantText: record.userOverrides.merchantLabel }
@@ -275,25 +278,29 @@ export function effectiveValues(record: TransactionLifecycle): EffectiveTransact
     ...(record.userOverrides.occurredAt ?? record.interpretation.occurredAt
       ? { occurredAt: record.userOverrides.occurredAt ?? record.interpretation.occurredAt }
       : {}),
-    eventType: record.userOverrides.eventType ?? record.interpretation.eventType,
+    eventType: record.userOverrides.eventType ?? (record.evidenceConflict && record.acceptedDefaults?.eventType ? record.acceptedDefaults.eventType : record.interpretation.eventType === "unknown" && record.acceptedDefaults?.eventType ? record.acceptedDefaults.eventType : record.interpretation.eventType),
   };
 }
 
-export function confirm(record: TransactionLifecycle): TransactionLifecycle {
-  return { ...record, confirmationState: "confirmed" };
+export function confirm(record: TransactionLifecycle, defaultCurrency?: string, currencyBasis: "source_profile_rule" | "chosen_app_default" = "chosen_app_default"): TransactionLifecycle {
+  if (!canConfirm(record, defaultCurrency)) return record;
+  const defaults = { ...record.acceptedDefaults };
+  if (record.interpretation.eventType === "unknown" && !record.userOverrides.eventType) defaults.eventType = "generic_expense" as const;
+  if (!record.interpretation.currency && !record.userOverrides.currency && defaultCurrency) { defaults.currency = defaultCurrency; defaults.currencyBasis = currencyBasis; }
+  return { ...record, acceptedDefaults: defaults, confirmationState: "confirmed" };
 }
 
-export function confirmAll(records: TransactionLifecycle[]): TransactionLifecycle[] {
+export function confirmAll(records: TransactionLifecycle[], defaultCurrency?: string): TransactionLifecycle[] {
   return records.map((record) =>
-    canConfirm(record) ? confirm(record) : record,
+    canConfirm(record, defaultCurrency) ? confirm(record, defaultCurrency) : record,
   );
 }
 
-/** Unknown type and missing currency require a human decision before confirmation. */
-export function canConfirm(record: TransactionLifecycle): boolean {
+/** Confirmation accepts unknown as generic expense and a chosen currency, never a missing amount. */
+export function canConfirm(record: TransactionLifecycle, defaultCurrency?: string): boolean {
   const values = effectiveValues(record);
   return record.disposition === "active" && record.deletionState === "active" &&
-    values.amountMinor !== undefined && !!values.currency && values.eventType !== "unknown";
+    values.amountMinor !== undefined && !!(values.currency || defaultCurrency) && !record.evidenceConflict;
 }
 
 export function setDisposition(record: TransactionLifecycle, disposition: CandidateDisposition): TransactionLifecycle {
@@ -331,8 +338,8 @@ function contributesToMetrics(record: TransactionLifecycle): boolean {
     !record.relationships.some(({ kind }) => kind === "duplicate_of");
 }
 
-function eventImpact(eventType: TransactionKind): { inflow: boolean; outflow: boolean } {
-  if (eventType === "purchase") return { inflow: false, outflow: true };
+function eventImpact(eventType: TransactionKind | "generic_expense"): { inflow: boolean; outflow: boolean } {
+  if (eventType === "purchase" || eventType === "generic_expense") return { inflow: false, outflow: true };
   if (eventType === "income" || eventType === "refund" || eventType === "reversal") {
     return { inflow: true, outflow: false };
   }
@@ -443,6 +450,8 @@ export class TransactionLifecycleStore {
     return record;
   }
 
+  constructor(records: TransactionLifecycle[] = []) { records.forEach((record) => this.save(record)); }
+
   /** The current unique economic events, useful for the fixture-only path. */
   records(): TransactionLifecycle[] {
     return [...this.recordsById.values()].sort((left, right) => left.id.localeCompare(right.id));
@@ -480,7 +489,10 @@ export class TransactionLifecycleStore {
         : record);
     }
 
-    const interpretation = interpretationAfterEvidence(existing.interpretation, incomingInterpretation);
+    // Re-seeing an already stored capture is provenance-only. It must never roll
+    // a later source reading or a person's review decision back in time.
+    const alreadySeenCapture = existing.sourceCandidates.some(item => item.captureId === candidate.captureId);
+    const interpretation = alreadySeenCapture ? existing.interpretation : interpretationAfterEvidence(existing.interpretation, incomingInterpretation);
     const changed = materialFingerprint(existing.interpretation) !== materialFingerprint(interpretation);
     const updated: TransactionLifecycle = {
       ...existing,
@@ -489,6 +501,13 @@ export class TransactionLifecycleStore {
       interpretation: changed ? interpretation : existing.interpretation,
       ...(changed && existing.confirmationState === "confirmed" && { confirmationState: "needs_confirmation" as const }),
       ...(changed && { attentionReasons: attentionReasons(interpretation) }),
+      ...(changed && existing.acceptedDefaults && {
+        evidenceConflict: [
+          existing.acceptedDefaults.currency && interpretation.currency && existing.acceptedDefaults.currency !== interpretation.currency ? `Accepted default currency ${existing.acceptedDefaults.currency}; new source currency ${interpretation.currency}` : "",
+          existing.acceptedDefaults.eventType && interpretation.eventType !== "unknown" && interpretation.eventType !== "purchase" ? `Accepted generic expense; new source type ${interpretation.eventType}` : "",
+        ].filter(Boolean).join("; ") || undefined,
+      }),
+      ...(changed && { actionHistory: [...(existing.actionHistory ?? []), { id: `${existing.id}:evidence:${candidate.captureId}`, at: candidate.processedAt, kind: "evidence_update" as const, detail: `New source reading: amount ${existing.interpretation.amountMinor ?? "missing"} → ${interpretation.amountMinor ?? "missing"}; currency ${existing.interpretation.currency ?? "missing"} → ${interpretation.currency ?? "missing"}; type ${existing.interpretation.eventType} → ${interpretation.eventType}. Confirmation requires review.` }] }),
     };
     return this.save(updated);
   }

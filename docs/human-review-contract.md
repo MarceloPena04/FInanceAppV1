@@ -57,3 +57,7 @@ User-entered starting amount, manual transactions, estimated remaining money, ac
 ## Current code gap
 
 `src/domain/transaction-lifecycle.ts` has in-memory replay handling, confirmation, basic overrides, exclusion, and detected metrics; it does not persist after refresh, filter calendar weeks, retain an action history, support all money-affecting corrections, or implement deletion suppression. `src/app/page.tsx` is a hard-coded class mock, not this path. See `docs/product-contract.md`, `docs/detected-metrics.md`, and `tests/domain/transaction-lifecycle.test.mjs` for the prior boundary and tests.
+
+## 2026-09-30 owner amendment (supersedes blockers above)
+
+Confirm, Save and confirm, and eligible bulk confirmation accept unknown source type as generic expense and absent source currency from the person's chosen fictional-demo default without an interruption. Original unknown and missing values remain in source evidence; action history labels the accepted default. The opt-in source-profile rule, when configured, outranks the chosen app default; explicit source currency and user edits outrank both. Missing amount still blocks confirmation. Conflicting later source evidence shows old and new money readings, holds the accepted impact, and requires review. See the focused ledger in `docs/fictional-scenario-manifest.md`.
