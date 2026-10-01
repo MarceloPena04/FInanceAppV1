@@ -2,7 +2,7 @@
 
 Status: product direction agreed in conversation on 2026-09-29; implementation remains unbuilt. This record narrows the fictional-data review path. It does not authorize a real source, a verified balance, or a complete-finances claim.
 
-This decision record supersedes the older `unknown`-is-neutral metric row in `docs/detected-metrics.md` and the event-kind prerequisite for every monetary summary in `docs/product-contract.md`. The new exception is an explicitly labelled **provisional outflow** for an amount-and-currency candidate whose event type is still unknown. The older documents should be reconciled during implementation; other invariants remain in force.
+Historical rule below is superseded by the 2026-10-01 owner correction. This decision record once superseded the older `unknown`-is-neutral metric row in `docs/detected-metrics.md` and the event-kind prerequisite for every monetary summary in `docs/product-contract.md`. The new exception is an explicitly labelled **provisional outflow** for an amount-and-currency candidate whose event type is still unknown. The older documents should be reconciled during implementation; other invariants remain in force.
 
 ## Purpose and language
 

@@ -82,6 +82,7 @@ export interface TransactionLifecycle {
   actionHistory?: ReviewAction[];
   acceptedDefaults?: { eventType?: "generic_expense"; currency?: string; currencyBasis?: "source_profile_rule" | "chosen_app_default" };
   evidenceConflict?: string;
+  duplicateReviewBefore?: CandidateConfirmationState;
 }
 
 export interface EffectiveTransactionValues {
@@ -278,29 +279,24 @@ export function effectiveValues(record: TransactionLifecycle): EffectiveTransact
     ...(record.userOverrides.occurredAt ?? record.interpretation.occurredAt
       ? { occurredAt: record.userOverrides.occurredAt ?? record.interpretation.occurredAt }
       : {}),
-    eventType: record.userOverrides.eventType ?? (record.evidenceConflict && record.acceptedDefaults?.eventType ? record.acceptedDefaults.eventType : record.interpretation.eventType === "unknown" && record.acceptedDefaults?.eventType ? record.acceptedDefaults.eventType : record.interpretation.eventType),
+    eventType: record.userOverrides.eventType ?? record.interpretation.eventType,
   };
 }
 
-export function confirm(record: TransactionLifecycle, defaultCurrency?: string, currencyBasis: "source_profile_rule" | "chosen_app_default" = "chosen_app_default"): TransactionLifecycle {
-  if (!canConfirm(record, defaultCurrency)) return record;
-  const defaults = { ...record.acceptedDefaults };
-  if (record.interpretation.eventType === "unknown" && !record.userOverrides.eventType) defaults.eventType = "generic_expense" as const;
-  if (!record.interpretation.currency && !record.userOverrides.currency && defaultCurrency) { defaults.currency = defaultCurrency; defaults.currencyBasis = currencyBasis; }
-  return { ...record, acceptedDefaults: defaults, confirmationState: "confirmed" };
+export function confirm(record: TransactionLifecycle): TransactionLifecycle {
+  if (!canConfirm(record)) return record;
+  return { ...record, confirmationState: "confirmed" };
 }
 
-export function confirmAll(records: TransactionLifecycle[], defaultCurrency?: string): TransactionLifecycle[] {
-  return records.map((record) =>
-    canConfirm(record, defaultCurrency) ? confirm(record, defaultCurrency) : record,
-  );
+export function confirmAll(records: TransactionLifecycle[]): TransactionLifecycle[] {
+  return records.map((record) => canConfirm(record) ? confirm(record) : record);
 }
 
-/** Confirmation accepts unknown as generic expense and a chosen currency, never a missing amount. */
-export function canConfirm(record: TransactionLifecycle, defaultCurrency?: string): boolean {
+/** Confirmation needs an explicit money direction and usable currency. */
+export function canConfirm(record: TransactionLifecycle): boolean {
   const values = effectiveValues(record);
   return record.disposition === "active" && record.deletionState === "active" &&
-    values.amountMinor !== undefined && !!(values.currency || defaultCurrency) && !record.evidenceConflict;
+    values.amountMinor !== undefined && !!values.currency && values.eventType !== "unknown" && !record.evidenceConflict;
 }
 
 export function setDisposition(record: TransactionLifecycle, disposition: CandidateDisposition): TransactionLifecycle {
@@ -338,7 +334,7 @@ function contributesToMetrics(record: TransactionLifecycle): boolean {
     !record.relationships.some(({ kind }) => kind === "duplicate_of");
 }
 
-function eventImpact(eventType: TransactionKind | "generic_expense"): { inflow: boolean; outflow: boolean } {
+export function eventImpact(eventType: TransactionKind | "generic_expense"): { inflow: boolean; outflow: boolean } {
   if (eventType === "purchase" || eventType === "generic_expense") return { inflow: false, outflow: true };
   if (eventType === "income" || eventType === "refund" || eventType === "reversal") {
     return { inflow: true, outflow: false };
@@ -362,8 +358,7 @@ function emptyCurrencyMetrics(currency: string): CurrencyDetectedMetrics {
 
 /**
  * Calculates detected activity only. It deliberately never returns a balance
- * or combines currencies. Unknown types get only the approved, separately
- * labelled provisional-outflow assumption.
+ * or combines currencies. Unknown types have no signed money effect.
  */
 export function calculateDetectedMetrics(records: TransactionLifecycle[]): DetectedMetrics {
   const metricsByCurrency = new Map<string, CurrencyDetectedMetrics>();
@@ -394,7 +389,7 @@ export function calculateDetectedMetrics(records: TransactionLifecycle[]): Detec
       current.detectedOutflowMinor += values.amountMinor;
       eventTotals.outflowMinor += values.amountMinor;
     }
-    if (values.eventType === "unknown") current.provisionalOutflowMinor += values.amountMinor;
+
     current.detectedNetFlowMinor = current.detectedInflowMinor - current.detectedOutflowMinor;
     current.byEventType[values.eventType] = eventTotals;
     if (record.confirmationState === "needs_confirmation") {

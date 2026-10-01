@@ -12,14 +12,12 @@ claim that every account or transaction was found.
 | reversal | amount when the source says money returned | 0 | positive amount |
 | withdrawal | 0 | 0 | 0; movement to cash is not global spending |
 | transfer | 0 | 0 | 0; do not invent an account ledger |
-| unknown, with amount and currency | 0 | 0 | 0 in ordinary flow; separately labelled provisional outflow of amount |
+| unknown, with amount and currency | 0 | 0 | 0; amount displayed separately as unclassified, without a sign |
 | excluded or soft-deleted | 0 | 0 | 0 |
 
 Candidates needing confirmation still contribute when their amount, currency,
 and event impact are known. Metrics expose that pending review separately.
-An unknown-type amount-and-currency candidate is the narrow approved exception:
-it contributes only to a separately labelled provisional-outflow field, remains
-unknown before confirmation. Confirmation accepts a generic expense as the person's decision, retaining the unknown source observation.
+An unknown-type amount-and-currency candidate contributes zero to signed flow until a person explicitly chooses Expense, Income, or Transfer between accounts. Confirmation alone never supplies the type.
 Missing-currency candidates remain reviewable but are not put in any
 currency-based total. Exact source duplicates and explicitly marked duplicates
 have one impact; a `possible_duplicate_of` relationship remains counted until a
@@ -38,10 +36,10 @@ Open decisions: whether future real source formats can safely supply the exact
 fingerprint/reference fields, retention for soft-deleted data, recurring-event
 UX, real-data privacy, and any future account/balance model.
 
-After confirmation, accepted generic expense is ordinary detected outflow; the provisional bucket goes to zero for that event. A missing source currency can receive a chosen app default or opt-in source-profile rule only on confirmation. Explicit source currency and user edit take precedence. Missing amount remains outside totals. Later conflicting metadata is held for review before replacing an accepted default.
+An explicit Expense choice creates ordinary detected outflow; Income creates inflow; Transfer between accounts remains neutral in combined detected flow. A missing source currency requires an explicit person-selected currency before confirmation. Missing amount remains outside totals.
 
 ## Reporting currency
 
-The Sprint 1 demo presents one selected reporting currency for all-time and weekly views. Each eligible event is classified first, suppressed if excluded or resolved as a duplicate, and then converted once with the versioned fictional table in `src/domain/reporting-currency.ts`. Totals sum converted integer minor units. The interface exposes the source amount, converted amount, rate formula, rate version, and whether currency came from source, user correction, source profile, or chosen default. Conversion does not alter source facts and the table is test data, not a live exchange rate.
+The Sprint 1 demo presents one selected reporting currency for all-time and weekly views. Each eligible event is classified first, suppressed if excluded or resolved as a duplicate, and then converted once with the versioned fictional table in `src/domain/reporting-currency.ts`. Totals sum converted integer minor units. The interface exposes the source amount, converted amount, rate formula, rate version, and whether currency came from source or user correction. Conversion does not alter source facts and the table is test data, not a live exchange rate.
 
-Pending monetary review is the sum of pending included flow-impact events in that reporting currency. The selected-week amount and elsewhere-in-history amount are disjoint and sum to the all-time amount. Neutral movements and duplicate-suppressed records may still appear for individual decisions, but add zero to these amounts. Bulk confirmation of ready records may leave detected net flow unchanged because pending known activity was already included.
+Pending review shows separate signed inflow, signed outflow, unsigned unclassified amount, and zero or unavailable effects. Selected-week and elsewhere-in-history partitions reconcile to all-time for each component. Neutral movements and duplicate-suppressed records may still appear for individual decisions, but add zero to these amounts. Bulk confirmation of ready records may leave detected net flow unchanged because pending known activity was already included.

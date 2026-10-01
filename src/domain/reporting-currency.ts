@@ -1,4 +1,4 @@
-import { effectiveValues, groupingDate, type TransactionLifecycle } from "./transaction-lifecycle.ts";
+import { effectiveValues, eventImpact, groupingDate, type TransactionLifecycle } from "./transaction-lifecycle.ts";
 
 export const REPORTING_RATE_VERSION = "fictional-demo-2026-09-30";
 export const SUPPORTED_REPORTING_CURRENCIES = ["EUR", "USD", "MXN", "JPY"] as const;
@@ -50,10 +50,11 @@ export function convertMinor(amountMinor: number, sourceCurrency: string, report
 export interface ReportingEventEffect {
   recordId: string;
   included: boolean;
-  reason: "included" | "outside_week" | "excluded" | "duplicate" | "missing_value" | "neutral";
+  reason: "included" | "outside_week" | "excluded" | "duplicate" | "missing_value" | "neutral" | "unclassified";
   inflowMinor: number;
   outflowMinor: number;
   provisionalOutflowMinor: number;
+  unclassifiedAmountMinor: number;
   pendingAmountMinor: number;
   conversion?: ConversionResult;
 }
@@ -68,7 +69,7 @@ function isInWeek(record: TransactionLifecycle, weekStart?: string): boolean {
 }
 
 export function reportingEventEffect(record: TransactionLifecycle, reportingCurrency: ReportingCurrency, weekStart?: string): ReportingEventEffect {
-  const empty = (reason: ReportingEventEffect["reason"]): ReportingEventEffect => ({ recordId: record.id, included: false, reason, inflowMinor: 0, outflowMinor: 0, provisionalOutflowMinor: 0, pendingAmountMinor: 0 });
+  const empty = (reason: ReportingEventEffect["reason"]): ReportingEventEffect => ({ recordId: record.id, included: false, reason, inflowMinor: 0, outflowMinor: 0, provisionalOutflowMinor: 0, unclassifiedAmountMinor: 0, pendingAmountMinor: 0 });
   if (!isInWeek(record, weekStart)) return empty("outside_week");
   if (record.disposition === "excluded" || record.deletionState !== "active") return empty("excluded");
   if (record.relationships.some(item => item.kind === "duplicate_of")) return empty("duplicate");
@@ -78,10 +79,10 @@ export function reportingEventEffect(record: TransactionLifecycle, reportingCurr
   if (!conversion) return empty("missing_value");
   const amount = conversion.reportingAmountMinor;
   const pending = record.confirmationState === "needs_confirmation";
-  if (value.eventType === "purchase" || value.eventType === "generic_expense") return { recordId: record.id, included: true, reason: "included", inflowMinor: 0, outflowMinor: amount, provisionalOutflowMinor: 0, pendingAmountMinor: pending ? amount : 0, conversion };
-  if (value.eventType === "income" || value.eventType === "refund" || value.eventType === "reversal") return { recordId: record.id, included: true, reason: "included", inflowMinor: amount, outflowMinor: 0, provisionalOutflowMinor: 0, pendingAmountMinor: pending ? amount : 0, conversion };
-  if (value.eventType === "unknown") return { recordId: record.id, included: true, reason: "included", inflowMinor: 0, outflowMinor: 0, provisionalOutflowMinor: amount, pendingAmountMinor: pending ? amount : 0, conversion };
-  return { ...empty("neutral"), conversion };
+  if (value.eventType === "unknown") return { recordId: record.id, included: false, reason: "unclassified", inflowMinor: 0, outflowMinor: 0, provisionalOutflowMinor: 0, unclassifiedAmountMinor: amount, pendingAmountMinor: 0, conversion };
+  const impact = eventImpact(value.eventType);
+  if (!impact.inflow && !impact.outflow) return { ...empty("neutral"), conversion };
+  return { recordId: record.id, included: true, reason: "included", inflowMinor: impact.inflow ? amount : 0, outflowMinor: impact.outflow ? amount : 0, provisionalOutflowMinor: 0, unclassifiedAmountMinor: 0, pendingAmountMinor: pending ? amount : 0, conversion };
 }
 
 export interface ReportingMetrics {
@@ -90,6 +91,7 @@ export interface ReportingMetrics {
   outflowMinor: number;
   netFlowMinor: number;
   provisionalOutflowMinor: number;
+  unclassifiedAmountMinor: number;
   pendingCount: number;
   pendingAmountMinor: number;
   effects: ReportingEventEffect[];
@@ -105,7 +107,8 @@ export function calculateReportingMetrics(records: TransactionLifecycle[], repor
     inflowMinor,
     outflowMinor,
     netFlowMinor: inflowMinor - outflowMinor,
-    provisionalOutflowMinor: included.reduce((sum, effect) => sum + effect.provisionalOutflowMinor, 0),
+    provisionalOutflowMinor: 0,
+    unclassifiedAmountMinor: effects.reduce((sum, effect) => sum + effect.unclassifiedAmountMinor, 0),
     pendingCount: included.filter(effect => effect.pendingAmountMinor > 0).length,
     pendingAmountMinor: included.reduce((sum, effect) => sum + effect.pendingAmountMinor, 0),
     effects,

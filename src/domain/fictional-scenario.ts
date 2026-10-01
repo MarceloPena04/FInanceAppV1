@@ -30,11 +30,38 @@ export function changeRecord(state: ScenarioState, id: string, kind: NonNullable
 }
 export function sourceProfile(record: TransactionLifecycle): string { const p=record.sourceProvenance[0]; return `${p.provider??p.sourceType}:${p.paymentInstrumentReference??"no-instrument"}`; }
 export function currencyChoice(state: ScenarioState, record: TransactionLifecycle): { currency?: string; basis: "source_profile_rule" | "chosen_app_default" } { const rule=state.sourceCurrencyRules.find(r=>r.profile===sourceProfile(record)); return rule?{currency:rule.currency,basis:"source_profile_rule"}:{currency:state.defaultCurrency,basis:"chosen_app_default"}; }
-export function confirmRecord(state: ScenarioState, id: string): ScenarioState { return changeRecord(state, id, "confirmed", "Person accepted displayed movement and applicable defaults", r => {const choice=currencyChoice(state,r);return confirm(r,choice.currency,choice.basis)}); }
+export function confirmRecord(state: ScenarioState, id: string): ScenarioState { return changeRecord(state, id, "confirmed", "Person accepted displayed movement and applicable defaults", r => confirm(r)); }
 export function undoConfirmation(state: ScenarioState, id: string): ScenarioState { return changeRecord(state, id, "confirmation_undone", "Person returned the transaction to review", r => ({ ...r, confirmationState: "needs_confirmation" })); }
 export function duplicateDecision(state: ScenarioState, id: string, choice: "same" | "separate" | "undo"): ScenarioState {
-  return changeRecord(state, id, "duplicate_decision", `Duplicate choice ${choice}`, r => ({ ...r, relationships: r.relationships.map(rel => rel.kind === "possible_duplicate_of" || rel.kind === "duplicate_of" || rel.kind === "separate_from" ? { ...rel, kind: choice === "same" ? "duplicate_of" as const : choice === "separate" ? "separate_from" as const : "possible_duplicate_of" as const } : rel) }));
+  const child = state.records.find(record => record.id === id);
+  const relation = child?.relationships.find(rel => ["possible_duplicate_of", "duplicate_of", "separate_from"].includes(rel.kind));
+  const target = state.records.find(record => record.id === relation?.targetId);
+  if (!child || !relation || !target) return state;
+  const nextKind = choice === "same" ? "duplicate_of" : choice === "separate" ? "separate_from" : "possible_duplicate_of";
+  let next = changeRecord(state, id, "duplicate_decision", `Duplicate choice ${choice}`, record => ({
+    ...record,
+    relationships: record.relationships.map(rel => rel.targetId === relation.targetId ? { ...rel, kind: nextKind } : rel),
+    confirmationState: choice === "undo" ? restoreDuplicateConfirmation(record) : choice === "separate" && canComplete(record) ? "confirmed" : record.confirmationState,
+    duplicateReviewBefore: choice === "undo" ? undefined : record.duplicateReviewBefore ?? record.confirmationState,
+  }));
+  if (choice === "same" || choice === "separate" || choice === "undo") next = changeRecord(next, target.id, "duplicate_decision", `Paired duplicate choice ${choice}`, record => ({
+    ...record,
+    confirmationState: choice === "undo" ? restoreDuplicateConfirmation(record) : canComplete(record) ? "confirmed" : record.confirmationState,
+    duplicateReviewBefore: choice === "undo" ? undefined : record.duplicateReviewBefore ?? record.confirmationState,
+  }));
+  return next;
 }
+function restoreDuplicateConfirmation(record: TransactionLifecycle): TransactionLifecycle["confirmationState"] {
+  const actions = record.actionHistory ?? [];
+  const decision = actions.findLastIndex(action => action.kind === "duplicate_decision");
+  if (actions.slice(decision + 1).some(action => action.kind === "confirmed" || action.kind === "confirmation_undone")) return record.confirmationState;
+  return record.duplicateReviewBefore ?? record.confirmationState;
+}
+function canComplete(record: TransactionLifecycle): boolean {
+  const value = effectiveValues(record);
+  return record.disposition === "active" && value.amountMinor !== undefined && !!value.currency && value.eventType !== "unknown" && !record.evidenceConflict;
+}
+
 export function weeks(records: TransactionLifecycle[]): string[] { return [...new Set(records.map(r => { const d = groupingDate(r).value; if (!d) return undefined; const date = new Date(d.length === 10 ? `${d}T00:00:00Z` : d); date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7); return date.toISOString().slice(0,10); }).filter((v):v is string=>!!v))].sort(); }
 export function eventEffect(r: TransactionLifecycle, week: string, currency: string): { reason: string; inflow: number; outflow: number; provisional: number; pending: boolean } {
   const d=groupingDate(r).value, v=effectiveValues(r);
@@ -48,7 +75,7 @@ export function eventEffect(r: TransactionLifecycle, week: string, currency: str
 }
 export function bulkPreview(state: ScenarioState, ids: string[], week: string, currency: string) {
   const before=calculateCalendarWeekMetrics(state.records,week).byCurrency.find(x=>x.currency===currency);
-  const afterRecords=state.records.map(r=>ids.includes(r.id)?confirm(r,currencyChoice(state,r).currency,currencyChoice(state,r).basis):r);
+  const afterRecords=state.records.map(r=>ids.includes(r.id)?confirm(r):r);
   const after=calculateCalendarWeekMetrics(afterRecords,week).byCurrency.find(x=>x.currency===currency);
   return { count:ids.length, before:before?.detectedNetFlowMinor??0, after:after?.detectedNetFlowMinor??0, delta:(after?.detectedNetFlowMinor??0)-(before?.detectedNetFlowMinor??0) };
 }

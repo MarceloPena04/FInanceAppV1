@@ -1,15 +1,23 @@
-import { effectiveValues, type TransactionLifecycle } from "./transaction-lifecycle.ts";
-import { calculateReportingMetrics, type ReportingCurrency } from "./reporting-currency.ts";
+import { effectiveValues, groupingDate, type TransactionLifecycle } from "./transaction-lifecycle.ts";
+import { calculateReportingMetrics, reportingEventEffect, type ReportingCurrency } from "./reporting-currency.ts";
 import { confirmRecord, type ScenarioState } from "./fictional-scenario.ts";
 
 export function attentionReasons(record: TransactionLifecycle, records: TransactionLifecycle[]): string[] {
   const reasons: string[] = [];
   if (records.some(item => item.relationships.some(rel => rel.kind === "possible_duplicate_of" && (item.id === record.id || rel.targetId === record.id)))) reasons.push("Possible duplicate");
   if (record.evidenceConflict) reasons.push("Later source evidence conflicts");
-  if (record.interpretation.eventType === "unknown" && !record.userOverrides.eventType) reasons.push("Type will use generic expense");
-  if (!record.interpretation.currency && !record.userOverrides.currency) reasons.push("Currency will use reporting currency");
+  if (effectiveValues(record).eventType === "unknown") reasons.push("Type unclassified: choose Expense, Income, or Transfer between accounts");
+  if (!effectiveValues(record).currency) reasons.push("Currency missing: choose a currency");
+  if (effectiveValues(record).amountMinor === undefined) reasons.push("Amount missing");
   if (["transfer", "withdrawal"].includes(effectiveValues(record).eventType)) reasons.push("Neutral money movement");
   return reasons;
+}
+
+export function newestFirst(records: TransactionLifecycle[]): TransactionLifecycle[] {
+  return records.map((record, index) => ({ record, index })).sort((a, b) => {
+    const time = (record: TransactionLifecycle) => { const value = groupingDate(record).value; return value ? new Date(value.length === 10 ? `${value}T00:00:00Z` : value).getTime() : -Infinity; };
+    return time(b.record) - time(a.record) || a.index - b.index;
+  }).map(item => item.record);
 }
 
 export function visibleActivity(records: TransactionLifecycle[]): TransactionLifecycle[] {
@@ -21,13 +29,18 @@ export function linkedEvidence(record: TransactionLifecycle, records: Transactio
 }
 
 export function reviewQueue(state: ScenarioState, currency: ReportingCurrency, week: string) {
+  const pending = newestFirst(visibleActivity(state.records).filter(record => record.confirmationState === "needs_confirmation" && record.disposition === "active"));
+  const ready = pending.filter(record => attentionReasons(record, state.records).length === 0 && reportingEventEffect(record, currency).included);
+  const needsAttention = pending.filter(record => !ready.includes(record));
   const all = calculateReportingMetrics(state.records, currency);
   const weekly = calculateReportingMetrics(state.records, currency, week);
-  const pending = new Set(all.effects.filter(effect => effect.pendingAmountMinor > 0).map(effect => effect.recordId));
-  const monetary = state.records.filter(record => pending.has(record.id));
-  const nonMonetary = state.records.filter(record => record.confirmationState === "needs_confirmation" && !pending.has(record.id) && record.disposition === "active" && record.deletionState === "active" && !record.relationships.some(rel => rel.kind === "duplicate_of") && attentionReasons(record, state.records).length > 0);
-  const ready = monetary.filter(record => attentionReasons(record, state.records).length === 0);
-  const needsAttention = [...monetary.filter(record => attentionReasons(record, state.records).length > 0), ...nonMonetary];
+  const summarize = (records: TransactionLifecycle[]) => {
+    const effects = records.map(record => reportingEventEffect(record, currency));
+    return { count: records.length, inflowMinor: effects.reduce((sum, effect) => sum + effect.inflowMinor, 0), outflowMinor: effects.reduce((sum, effect) => sum + effect.outflowMinor, 0), unclassifiedMinor: effects.reduce((sum, effect) => sum + effect.unclassifiedAmountMinor, 0), zeroCount: effects.filter(effect => !effect.inflowMinor && !effect.outflowMinor && !effect.unclassifiedAmountMinor).length };
+  };
+  const weekIds = new Set(weekly.effects.filter(effect => effect.reason !== "outside_week").map(effect => effect.recordId));
+  const weekPending = pending.filter(record => weekIds.has(record.id));
+  const elsewherePending = pending.filter(record => !weekIds.has(record.id));
   const readyMetrics = calculateReportingMetrics(ready, currency);
   const readyWeek = calculateReportingMetrics(ready, currency, week);
   return {
@@ -35,9 +48,8 @@ export function reviewQueue(state: ScenarioState, currency: ReportingCurrency, w
     readyAmountMinor: readyMetrics.pendingAmountMinor,
     readyWeekAmountMinor: readyWeek.pendingAmountMinor,
     readyElsewhereAmountMinor: readyMetrics.pendingAmountMinor - readyWeek.pendingAmountMinor,
-    week: { count: weekly.pendingCount, amountMinor: weekly.pendingAmountMinor },
-    elsewhere: { count: all.pendingCount - weekly.pendingCount, amountMinor: all.pendingAmountMinor - weekly.pendingAmountMinor },
-    total: { count: all.pendingCount, amountMinor: all.pendingAmountMinor },
+    week: summarize(weekPending), elsewhere: summarize(elsewherePending), total: summarize(pending),
+    all, weekly,
   };
 }
 
