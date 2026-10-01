@@ -1,14 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadDefaultFixtureDocument } from '../../src/fixtures/loader.ts';
-import { EMPTY_SCENARIO, duplicateDecision, processCapture, confirmRecord, changeRecord } from '../../src/domain/fictional-scenario.ts';
+import { EMPTY_SCENARIO, duplicateDecision, processCapture, confirmRecord, changeRecord, weeks } from '../../src/domain/fictional-scenario.ts';
 import { calculateReportingMetrics } from '../../src/domain/reporting-currency.ts';
-import { confirmReady, linkedEvidence, reviewQueue, visibleActivity } from '../../src/domain/review-queue.ts';
+import { confirmReady, linkedEvidence, newestFirst, reviewQueue, visibleActivity } from '../../src/domain/review-queue.ts';
 
 const fixtures = loadDefaultFixtureDocument().records;
 const add = (state, id) => { const fixture = fixtures.find(item => item.id === id); assert.ok(fixture); return processCapture(state, id, fixture.capture); };
 const make = ids => ids.reduce(add, { ...EMPTY_SCENARIO, defaultCurrency: 'EUR' });
 const stateFor = (state, id) => state.records.find(item => item.sourceCandidates.some(candidate => candidate.captureId === fixtures.find(fixture => fixture.id === id).capture.captureId));
+
+test('invalid dates stay out of selectable weeks and sort with undated activity', () => {
+  const state = make(['normal-purchase-email-eur', 'refund-eur']);
+  const invalid = structuredClone(state.records[0]);
+  invalid.id = 'invalid-date';
+  invalid.userOverrides = { ...invalid.userOverrides, occurredAt: 'not-a-date' };
+  invalid.interpretation = { ...invalid.interpretation, occurredAt: undefined };
+  invalid.sourceCandidates = invalid.sourceCandidates.map(candidate => ({ ...candidate, capturedAt: undefined, processedAt: undefined, sourceFacts: { ...candidate.sourceFacts, occurredAt: undefined } }));
+  assert.deepEqual(weeks([...state.records, invalid]), ['2026-09-21']);
+  assert.equal(newestFirst([...state.records, invalid]).at(-1).id, 'invalid-date');
+});
 
 test('ready bulk actions leave attention untouched and write one action per confirmation', () => {
   const original = make(['normal-purchase-email-eur', 'refund-eur', 'missing-merchant', 'transfer-eur', 'sparse-cross-source-email', 'sparse-cross-source-push']);

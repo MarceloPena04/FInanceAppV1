@@ -68,7 +68,7 @@ function canComplete(record: TransactionLifecycle): boolean {
   return record.disposition === "active" && value.amountMinor !== undefined && !!value.currency && value.eventType !== "unknown" && !record.evidenceConflict;
 }
 
-export function weeks(records: TransactionLifecycle[]): string[] { return [...new Set(records.map(r => { const d = groupingDate(r).value; if (!d) return undefined; const date = new Date(d.length === 10 ? `${d}T00:00:00Z` : d); date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7); return date.toISOString().slice(0,10); }).filter((v):v is string=>!!v))].sort(); }
+export function weeks(records: TransactionLifecycle[]): string[] { return [...new Set(records.map(r => { const d = groupingDate(r).value; if (!d) return undefined; const date = new Date(d.length === 10 ? `${d}T00:00:00Z` : d); if (!Number.isFinite(date.getTime())) return undefined; date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7); return date.toISOString().slice(0,10); }).filter((v):v is string=>!!v))].sort(); }
 export function eventEffect(r: TransactionLifecycle, week: string, currency: string): { reason: string; inflow: number; outflow: number; provisional: number; pending: boolean } {
   const d=groupingDate(r).value, v=effectiveValues(r);
   const inWeek=!!d && new Date(d.length===10?`${d}T00:00:00Z`:d).getTime() >= new Date(`${week}T00:00:00Z`).getTime() && new Date(d.length===10?`${d}T00:00:00Z`:d).getTime()<new Date(`${week}T00:00:00Z`).getTime()+604800000;

@@ -23,3 +23,9 @@ No participant was available during this build. The human-value question remains
 ## Final acceptance gate after second qualitative pass
 
 The participant said the revised feed was substantially more usable, but the final correction still needs their observed answer. Ask them to find and use Confirm all ready; verify Needs attention stayed pending; explain that This week is included in All-time history; choose Same transaction and inspect both linked notices under one card; undo and explain all-time versus weekly detected totals. Verify that completing the final pending candidate removes the yellow Needs review card and that undoing a confirmation restores it. Record whether this was easier or faster than reconstructing the same fictional notices manually, including approximate time, actions, or errors when available. Do not mark Sprint 1 complete from machine checks alone.
+
+## Owner-reported qualitative feedback — 2026-10-01
+
+The owner reported feedback from one person: the current screen felt aggressive and overwhelming, and did not feel designed for mobile use. The requested direction is a compact summary that foregrounds detected activity, keeps Needs review closed until opened, and opens transaction details on demand in a mobile sheet. Treat this as a qualitative report from the owner; it is not an observed timed/manual comparison, and it does not establish that the changes improve review time or outcomes.
+
+The exercise still needs an observed participant using the changed UI. Compare app review with manual reconstruction using the same fictional notices, and record the participant's explanation of the totals, actions, errors, and coverage understanding. Sprint 1 remains open until that exercise and the existing final acceptance checks are completed.

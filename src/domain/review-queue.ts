@@ -16,7 +16,7 @@ export function attentionReasons(record: TransactionLifecycle, records: Transact
 
 export function newestFirst(records: TransactionLifecycle[]): TransactionLifecycle[] {
   return records.map((record, index) => ({ record, index })).sort((a, b) => {
-    const time = (record: TransactionLifecycle) => { const value = groupingDate(record).value; return value ? new Date(value.length === 10 ? `${value}T00:00:00Z` : value).getTime() : -Infinity; };
+    const time = (record: TransactionLifecycle) => { const value = groupingDate(record).value, instant = value ? new Date(value.length === 10 ? `${value}T00:00:00Z` : value).getTime() : NaN; return Number.isFinite(instant) ? instant : -Infinity; };
     return time(b.record) - time(a.record) || a.index - b.index;
   }).map(item => item.record);
 }

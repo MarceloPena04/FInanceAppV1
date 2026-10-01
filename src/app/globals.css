@@ -1,8 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #e4ecef;
-  --foreground: #162235;
+  color-scheme: light;
+  --background: #f5f7f6;
+  --surface: #ffffff;
+  --foreground: #182230;
+  --muted: #667085;
+  --border: #e1e7e4;
+  --accent: #087f70;
+  --income: #087f57;
+  --expense: #344054;
+  --transfer: #667085;
+  --attention: #a15c00;
+  --attention-surface: #fff8e8;
+  --shadow-soft: 0 12px 36px rgb(24 34 48 / 12%);
 }
 
 @theme inline {
@@ -12,12 +23,165 @@
   --font-mono: var(--font-geist-mono);
 }
 
+* { box-sizing: border-box; }
+
+html {
+  min-width: 320px;
+  background: var(--background);
+  scroll-padding-block: 6rem 1rem;
+}
+
 body {
+  min-width: 320px;
+  margin: 0;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; }
 
-button, input { font: inherit; }
+button, select, summary, a, [role="button"] { touch-action: manipulation; }
+
+:where(button, input, select, textarea, summary, a, [tabindex]):focus-visible {
+  outline: 3px solid #168b7c;
+  outline-offset: 3px;
+}
+
+::selection { background: #c8eee4; color: #153b35; }
+
+/* The app is a compact review tool; keep the reading column comfortable. */
+.finance-shell {
+  width: min(100% - 2rem, 62rem);
+  margin-inline: auto;
+  padding-block: max(1rem, env(safe-area-inset-top)) calc(2rem + env(safe-area-inset-bottom));
+}
+
+.weekly-sticky {
+  position: fixed;
+  z-index: 30;
+  inset-inline: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  min-height: 3.25rem;
+  padding: calc(0.65rem + env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.65rem max(1rem, env(safe-area-inset-left));
+  border-bottom: 1px solid rgb(225 231 228 / 90%);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 8px 28px rgb(24 34 48 / 8%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.weekly-sticky[hidden] { display: none; }
+.weekly-sticky[data-visible="false"] { display: none; }
+.weekly-sticky > span,
+.weekly-sticky > b { white-space: nowrap; font-size: 0.875rem; }
+.weekly-sticky > b { font-size: 1rem; }
+
+/* Native <dialog> provides Escape handling and modal focus behavior. */
+.transaction-dialog {
+  width: min(100% - 2rem, 42rem);
+  max-width: 42rem;
+  max-height: min(88dvh, 54rem);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-soft);
+}
+
+.transaction-dialog[open] { animation: dialog-enter 180ms ease-out both; }
+
+.transaction-sheet-content { padding: 1.25rem; }
+.activity-week { scroll-margin-top: 6rem; }
+.needs-review-panel, .all-time-flow { min-width: 0; }
+.all-time-flow {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+}
+.all-time-flow :where(.text-white, .text-slate-300, .text-slate-400) { color: var(--muted); }
+.all-time-flow > p:nth-of-type(2) { color: var(--foreground); }
+.all-time-flow .text-amber-200 { color: var(--attention); }
+
+[data-flow="income"] { color: var(--income); }
+[data-flow="expense"] { color: var(--expense); }
+[data-flow="transfer"] { color: var(--transfer); }
+[data-attention="true"] { color: var(--attention); }
+
+.transaction-dialog::backdrop {
+  background: rgb(18 28 37 / 48%);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.transaction-dialog :where(input, select, textarea, button) { min-height: 2.75rem; }
+
+[data-needs-decision="true"] {
+  border-color: #d58a19 !important;
+  background-color: var(--attention-surface) !important;
+  box-shadow: 0 0 0 1px rgb(213 138 25 / 18%);
+}
+
+@keyframes dialog-enter {
+  from { opacity: 0; transform: translateY(0.5rem) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 640px) {
+  .finance-shell {
+    width: 100%;
+  padding: max(0.75rem, env(safe-area-inset-top)) 1rem calc(2rem + env(safe-area-inset-bottom));
+  }
+
+  .weekly-sticky {
+    padding: calc(0.65rem + env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) 0.65rem max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .transaction-dialog {
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: min(90dvh, 52rem);
+    margin: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    border: 0;
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: 0 -12px 40px rgb(24 34 48 / 18%);
+  }
+
+  .transaction-dialog[open] { animation-name: sheet-enter; }
+
+  .transaction-dialog::backdrop { background: rgb(18 28 37 / 46%); }
+}
+
+@keyframes sheet-enter {
+  from { opacity: 0.85; transform: translateY(1.25rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 360px) {
+  .finance-shell { padding-inline: 0.75rem; }
+  .weekly-sticky { padding-inline: 0.5rem; }
+  .transaction-dialog { border-radius: 1rem 1rem 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
