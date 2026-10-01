@@ -40,6 +40,31 @@ test('review counts and signed effects reconcile by period', () => {
   assert.equal(queue.total.unclassifiedMinor, 782);
 });
 
+test('all-time review retains zero-effect and date-less pending records', () => {
+  const original = make(['normal-purchase-email-eur', 'transfer-eur']);
+  const transfer = stateFor(original, 'transfer-eur');
+  const state = {
+    ...original,
+    records: original.records.map(record => record.id === transfer.id ? {
+      ...record,
+      interpretation: { ...record.interpretation, occurredAt: undefined },
+      userOverrides: { ...record.userOverrides, occurredAt: undefined },
+      sourceCandidates: record.sourceCandidates.map(candidate => ({
+        ...candidate,
+        capturedAt: undefined,
+        processedAt: undefined,
+        sourceFacts: { ...candidate.sourceFacts, occurredAt: undefined },
+      })),
+    } : record),
+  };
+  const queue = reviewQueue(state, 'EUR', '2026-09-21');
+
+  assert.equal(queue.week.count, 1, 'a record without any usable date cannot be assigned to This week');
+  assert.equal(queue.total.count, 2, 'all-time review still includes every pending record');
+  assert.equal(queue.total.zeroCount, 1, 'a neutral transfer is pending work even though it has no signed money effect');
+  assert.ok(queue.total.count > 0, 'the review-card visibility condition remains true while pending work exists');
+});
+
 test('duplicate choices change visible cards and money, retain evidence, and survive replay', () => {
   let state = make(['sparse-cross-source-email', 'sparse-cross-source-push']);
   const duplicate = stateFor(state, 'sparse-cross-source-push');

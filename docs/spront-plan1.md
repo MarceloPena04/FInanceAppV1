@@ -47,4 +47,4 @@ The source-to-total inspection path, scenario ledger, and domain checks now exis
 
 ## Final correction status
 
-The review queue now separates ready records from attention decisions, splits pending monetary value by selected week and other history, and shows a resolved duplicate as one normal activity card with linked evidence. The participant's short final acceptance answer and manual-versus-app effort observation are still required before this Sprint can be closed. Code evidence: `src/domain/review-queue.ts`, `src/app/page.tsx`, and `tests/domain/review-queue.test.mjs`.
+The review queue now separates ready records from attention decisions, shows pending monetary value for This week and All-time history, and shows a resolved duplicate as one normal activity card with linked evidence. This week is included in All-time history. The yellow review card and expanded panel disappear once no candidates remain pending. The participant's short final acceptance answer and manual-versus-app effort observation are still required before this Sprint can be closed. Code evidence: `src/domain/review-queue.ts`, `src/app/page.tsx`, and `tests/domain/review-queue.test.mjs`.
