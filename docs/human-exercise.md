@@ -38,7 +38,7 @@ During the still-open human exercise, ask the participant to:
 
 1. Find an income, an expense, and an unclassified item. Explain the different money effects.
 2. Find which bank, account, and card the fictional Exact Corner purchase names. Open its details and point to the original notice evidence. Find one activity with no identified source and say what remains unknown.
-3. Filter to Income, then search for a merchant and choose a wallet. Explain why the list changes while the selected week's detected net flow stays the same. Ask whether the wording makes clear that the amount is detected flow, not money remaining.
+3. Filter to Income, then search for a merchant. Explain why only the activity list changes. Choose one bank or account in the source selector and explain why the all-time and selected-week detected net-flow figures, review count, and activity list now change together. Ask whether the wording makes clear that the amount is detected flow, not money remaining.
 4. Correct a wallet in the detail sheet and undo it. Check whether the participant can still distinguish the notice's source facts from their own assignment.
 
 Record task completion, time or actions when possible, wrong interpretations, corrections, and the participant's own explanation. The added fixtures and automated checks do not close this human exercise.

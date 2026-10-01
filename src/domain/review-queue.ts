@@ -30,12 +30,13 @@ export function linkedEvidence(record: TransactionLifecycle, records: Transactio
   return records.filter(item => item.id === record.id || item.relationships.some(rel => rel.kind === "duplicate_of" && rel.targetId === record.id));
 }
 
-export function reviewQueue(state: ScenarioState, currency: ReportingCurrency, week: string) {
-  const pending = newestFirst(visibleActivity(state.records).filter(record => record.confirmationState === "needs_confirmation" && record.disposition === "active"));
+export function reviewQueue(state: ScenarioState, currency: ReportingCurrency, week: string, scopedIds?: ReadonlySet<string>) {
+  const scoped = scopedIds ? state.records.filter(record => scopedIds.has(record.id)) : state.records;
+  const pending = newestFirst(visibleActivity(scoped).filter(record => record.confirmationState === "needs_confirmation" && record.disposition === "active"));
   const ready = pending.filter(record => attentionReasons(record, state.records).length === 0 && reportingEventEffect(record, currency).included);
   const needsAttention = pending.filter(record => !ready.includes(record));
-  const all = calculateReportingMetrics(state.records, currency);
-  const weekly = calculateReportingMetrics(state.records, currency, week);
+  const all = calculateReportingMetrics(scoped, currency);
+  const weekly = calculateReportingMetrics(scoped, currency, week);
   const summarize = (records: TransactionLifecycle[]) => {
     const effects = records.map(record => reportingEventEffect(record, currency));
     return { count: records.length, inflowMinor: effects.reduce((sum, effect) => sum + effect.inflowMinor, 0), outflowMinor: effects.reduce((sum, effect) => sum + effect.outflowMinor, 0), unclassifiedMinor: effects.reduce((sum, effect) => sum + effect.unclassifiedAmountMinor, 0), zeroCount: effects.filter(effect => !effect.inflowMinor && !effect.outflowMinor && !effect.unclassifiedAmountMinor).length };

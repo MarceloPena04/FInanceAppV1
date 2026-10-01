@@ -263,7 +263,9 @@
         "metadata": {
           "externalId": "mail-008",
           "sender": "alerts@fictional-ledger.example",
-          "subject": "Refund issued"
+          "subject": "Refund issued",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-7732"
         }
       },
       "expected": {
@@ -276,6 +278,7 @@
             "occurredAt": "2026-09-21",
             "merchantText": "Northwind Outfitters",
             "kind": "refund",
+            "fundingSource": { "institution": "South Example Bank", "account": "••7732" },
             "evidence": [
               {
                 "field": "amount",
@@ -614,7 +617,9 @@
         "metadata": {
           "externalId": "mail-017",
           "sender": "alerts@fictional-ledger.example",
-          "subject": "Transfer sent"
+          "subject": "Transfer sent",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-1122"
         }
       },
       "expected": {
@@ -626,6 +631,7 @@
             "currency": "EUR",
             "merchantText": "Savings Pocket",
             "kind": "transfer",
+            "fundingSource": { "institution": "South Example Bank", "account": "••1122" },
             "evidence": [
               {
                 "field": "amount",
@@ -968,7 +974,9 @@
         "rawText": "Payment completed: 17.50 at Example Cafe.",
         "metadata": {
           "externalId": "fixture-028",
-          "channel": "synthetic"
+          "channel": "synthetic",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-7732"
         }
       },
       "expected": {
@@ -979,6 +987,7 @@
             "amountMinor": 1750,
             "merchantText": "Example Cafe",
             "kind": "purchase",
+            "fundingSource": { "institution": "South Example Bank", "account": "••7732" },
             "evidence": [
               {
                 "field": "amount",

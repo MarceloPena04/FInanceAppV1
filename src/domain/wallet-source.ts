@@ -3,6 +3,7 @@ import { effectiveValues, sourceIdentityConflict, type TransactionLifecycle } fr
 import { createTransactionParser } from "../parser/transaction-parser.ts";
 
 export type ActivityTypeFilter = "all" | "income" | "expense" | "other";
+export interface SourceScopeOption { key: string; label: string; group: "bank" | "account" | "assigned" | "other" }
 
 function suffix(reference: string | undefined): string | undefined {
   const digits = reference?.match(/\d{2,4}$/)?.[0];
@@ -32,6 +33,47 @@ export function walletOptions(records: TransactionLifecycle[]): Array<{ key: str
   const found = new Map<string, string>();
   records.forEach(record => { const wallet = walletForRecord(record); if (wallet.key) found.set(wallet.key, wallet.label); });
   return [...found].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function bankForRecord(record: TransactionLifecycle): string | undefined {
+  const assignedKey = record.userOverrides.walletId;
+  if (record.userOverrides.walletLabel && assignedKey?.startsWith("manual:")) return undefined;
+  if (record.userOverrides.walletLabel && (assignedKey?.startsWith("account:") || assignedKey?.startsWith("card:"))) {
+    const bank = record.userOverrides.walletLabel.split(" · ")[0];
+    return bank && !/^(Account|Card)\b/.test(bank) ? bank : undefined;
+  }
+  const observations = record.sourceCandidates.map(item => item.sourceFacts.fundingSource?.institution);
+  const provenance = record.sourceProvenance.map(item => item.institutionName);
+  const names = [...observations, ...provenance].filter((name): name is string => !!name);
+  if (!names.length || new Set(names.map(name => name.trim().toLowerCase())).size !== 1) return undefined;
+  return names[0];
+}
+
+/** A bank is a viewing scope, not proof that its notices share one account. */
+export function sourceScopeOptions(records: TransactionLifecycle[]): SourceScopeOption[] {
+  const banks = new Map<string, SourceScopeOption>();
+  records.forEach(record => {
+    const name = bankForRecord(record);
+    if (name) banks.set(`bank:${name.trim().toLowerCase()}`, { key: `bank:${name.trim().toLowerCase()}`, label: `${name} · all accounts`, group: "bank" });
+  });
+  const accounts = walletOptions(records).map(wallet => ({ ...wallet, group: wallet.key.startsWith("manual:") ? "assigned" as const : "account" as const }));
+  return [
+    { key: "all", label: "All sources", group: "other" },
+    ...[...banks.values()].sort((a, b) => a.label.localeCompare(b.label)),
+    ...accounts,
+    { key: "unassigned", label: "Source not identified", group: "other" },
+  ];
+}
+
+export function recordMatchesSourceScope(record: TransactionLifecycle, key: string): boolean {
+  if (key === "all") return true;
+  if (key === "unassigned") return !walletForRecord(record).key && !bankForRecord(record);
+  if (key.startsWith("bank:")) return bankForRecord(record)?.trim().toLowerCase() === key.slice(5);
+  return walletForRecord(record).key === key;
+}
+
+export function sourceScopedRecords(records: TransactionLifecycle[], key: string): TransactionLifecycle[] {
+  return records.filter(record => recordMatchesSourceScope(record, key));
 }
 
 export function filterActivityRecords(records: TransactionLifecycle[], search: string, type: ActivityTypeFilter, walletKey: string): TransactionLifecycle[] {

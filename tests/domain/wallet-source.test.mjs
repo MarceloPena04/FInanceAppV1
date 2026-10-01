@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loadDefaultFixtureDocument } from "../../src/fixtures/loader.ts";
 import { createTransactionParser } from "../../src/parser/transaction-parser.ts";
-import { EMPTY_SCENARIO, changeRecord, confirmRecord, processCapture } from "../../src/domain/fictional-scenario.ts";
+import { EMPTY_SCENARIO, changeRecord, confirmRecord, duplicateDecision, processCapture } from "../../src/domain/fictional-scenario.ts";
 import { clearUserOverrides, sourceIdentityConflict } from "../../src/domain/transaction-lifecycle.ts";
-import { attentionReasons, visibleActivity } from "../../src/domain/review-queue.ts";
+import { attentionReasons, confirmReady, reviewQueue, visibleActivity } from "../../src/domain/review-queue.ts";
 import { calculateReportingMetrics } from "../../src/domain/reporting-currency.ts";
-import { filterActivityRecords, migrateWalletEvidence, walletForRecord, walletOptions } from "../../src/domain/wallet-source.ts";
+import { filterActivityRecords, migrateWalletEvidence, sourceScopeOptions, sourceScopedRecords, walletForRecord, walletOptions } from "../../src/domain/wallet-source.ts";
 
 const fixtures = loadDefaultFixtureDocument().records;
 const fixture = id => fixtures.find(item => item.id === id).capture;
@@ -104,4 +104,74 @@ test("search and filters change rows but never the source-derived period total",
   assert.equal(filterActivityRecords(rows, "", "all", wallet.key).length, 1);
   assert.equal(filterActivityRecords(rows, "", "all", "unassigned").length, 1);
   assert.equal(calculateReportingMetrics(rows, "EUR").netFlowMinor, total);
+});
+
+test("bank and account choices scope the figures, queue, and activity together", () => {
+  let state = { ...EMPTY_SCENARIO, defaultCurrency: "EUR" };
+  for (const id of ["exact-cross-source-email", "refund-eur", "transfer-eur", "missing-merchant"]) state = add(state, id);
+  const options = sourceScopeOptions(visibleActivity(state.records));
+  const south = options.find(option => option.key === "bank:south example bank");
+  const account7732 = options.find(option => option.key.startsWith("account:") && option.label.includes("7732"));
+  const account1122 = options.find(option => option.key.startsWith("account:") && option.label.includes("1122"));
+  assert.ok(south && account7732 && account1122);
+  assert.equal(sourceScopedRecords(state.records, south.key).length, 2);
+  assert.equal(sourceScopedRecords(state.records, account7732.key).length, 1);
+  assert.equal(sourceScopedRecords(state.records, account1122.key).length, 1);
+  assert.equal(sourceScopedRecords(state.records, "unassigned").length, 1);
+  const scoped = sourceScopedRecords(state.records, account7732.key);
+  const ids = new Set(scoped.map(record => record.id));
+  const queue = reviewQueue(state, "EUR", "2026-09-28", ids);
+  assert.equal(queue.total.count, 1);
+  assert.equal(queue.all.netFlowMinor, calculateReportingMetrics(scoped, "EUR").netFlowMinor);
+  assert.equal(queue.weekly.netFlowMinor, calculateReportingMetrics(scoped, "EUR", "2026-09-28").netFlowMinor);
+  assert.equal(visibleActivity(scoped).length, 1);
+  const filtered = filterActivityRecords(visibleActivity(scoped), "no matching merchant", "expense", "all");
+  assert.equal(filtered.length, 0);
+  assert.equal(reviewQueue(state, "EUR", "2026-09-28", ids).all.netFlowMinor, queue.all.netFlowMinor);
+});
+
+test("bulk confirmation affects only ready records in the selected source", () => {
+  let state = { ...EMPTY_SCENARIO, defaultCurrency: "EUR" };
+  for (const id of ["exact-cross-source-email", "refund-eur", "transfer-eur"]) state = add(state, id);
+  const north = sourceScopedRecords(state.records, "bank:north example bank");
+  const northQueue = reviewQueue(state, "EUR", "2026-09-28", new Set(north.map(record => record.id)));
+  assert.equal(northQueue.ready.length, 1);
+  state = confirmReady(state, "EUR", "2026-09-28", northQueue.ready.map(record => record.id));
+  assert.equal(state.records.find(record => record.id === north[0].id).confirmationState, "confirmed");
+  assert.equal(reviewQueue(state, "EUR", "2026-09-28").total.count, 2);
+});
+
+test("a wallet assignment changes viewing scope and undo restores observed source", () => {
+  let state = add({ ...EMPTY_SCENARIO, defaultCurrency: "EUR" }, "refund-eur");
+  const record = state.records[0], observed = walletForRecord(record);
+  state = changeRecord(state, record.id, "edited", "Wallet reassigned", item => ({ ...item, userOverrides: { ...item.userOverrides, walletId: "manual:daily", walletLabel: "Daily wallet" } }));
+  assert.equal(sourceScopedRecords(state.records, observed.key).length, 0);
+  assert.equal(sourceScopedRecords(state.records, "manual:daily").length, 1);
+  assert.ok(sourceScopeOptions(state.records).some(option => option.key === "manual:daily" && option.group === "assigned"));
+  state = changeRecord(state, record.id, "edited", "Undo wallet", item => clearUserOverrides(item, ["walletId", "walletLabel"]));
+  assert.equal(sourceScopedRecords(state.records, observed.key).length, 1);
+  assert.equal(walletForRecord(state.records[0]).detail, observed.detail);
+});
+
+test("new fixture identities migrate without replaying confirmations, exclusions, or duplicate choices", () => {
+  let state = { ...EMPTY_SCENARIO, defaultCurrency: "EUR" };
+  for (const id of ["refund-eur", "transfer-eur", "sparse-cross-source-email", "sparse-cross-source-push"]) state = add(state, id);
+  const refund = state.records.find(record => record.sourceCandidates.some(item => item.captureId === fixture("refund-eur").captureId));
+  const transfer = state.records.find(record => record.sourceCandidates.some(item => item.captureId === fixture("transfer-eur").captureId));
+  const duplicate = state.records.find(record => record.relationships.some(rel => rel.kind === "possible_duplicate_of"));
+  state = confirmRecord(state, refund.id);
+  state = changeRecord(state, transfer.id, "excluded", "Excluded", record => ({ ...record, disposition: "excluded" }));
+  state = duplicateDecision(state, duplicate.id, "separate");
+  const before = calculateReportingMetrics(state.records, "EUR").netFlowMinor;
+  const old = state.records.map(record => ({ ...record,
+    sourceCandidates: record.sourceCandidates.map(candidate => ({ ...candidate, sourceFacts: { ...candidate.sourceFacts, fundingSource: undefined, evidence: candidate.sourceFacts.evidence.filter(item => !["institution", "account", "card"].includes(item.field)) } })),
+    sourceProvenance: record.sourceProvenance.map(source => ({ ...source, institutionName: undefined, accountReference: undefined, paymentInstrumentReference: undefined })),
+  }));
+  const migrated = migrateWalletEvidence(old, fixtures.map(item => item.capture));
+  assert.equal(calculateReportingMetrics(migrated, "EUR").netFlowMinor, before);
+  assert.equal(migrated.find(record => record.id === refund.id).confirmationState, "confirmed");
+  assert.equal(migrated.find(record => record.id === transfer.id).disposition, "excluded");
+  assert.ok(migrated.find(record => record.id === duplicate.id).relationships.some(rel => rel.kind === "separate_from"));
+  assert.match(walletForRecord(migrated.find(record => record.id === refund.id)).label, /7732/);
+  assert.match(walletForRecord(migrated.find(record => record.id === transfer.id)).label, /1122/);
 });
