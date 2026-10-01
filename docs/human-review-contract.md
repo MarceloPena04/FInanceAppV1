@@ -61,3 +61,23 @@ User-entered starting amount, manual transactions, estimated remaining money, ac
 ## 2026-09-30 owner amendment (supersedes blockers above)
 
 Confirm, Save and confirm, and eligible bulk confirmation accept unknown source type as generic expense and absent source currency from the person's chosen fictional-demo default without an interruption. Original unknown and missing values remain in source evidence; action history labels the accepted default. The opt-in source-profile rule, when configured, outranks the chosen app default; explicit source currency and user edits outrank both. Missing amount still blocks confirmation. Conflicting later source evidence shows old and new money readings, holds the accepted impact, and requires review. See the focused ledger in `docs/fictional-scenario-manifest.md`.
+
+## 2026-10-01 owner correction — no assumed outflow
+
+This newer decision supersedes every earlier rule in this document that treats
+an unknown event type as provisional outflow or silently accepts it as generic
+expense on confirmation. An event with unknown type remains unclassified and
+contributes zero to detected inflow, outflow, and net flow until the person
+explicitly chooses its type. Show its observed amount separately as money
+awaiting classification, without a plus or minus sign or a claim that it
+affects flow. Confirmation must not choose Expense for the person. An explicit
+source purchase or income may still affect detected flow before review; review
+state and money direction are separate.
+
+The main user choices for classifying an unknown movement are Expense, Income,
+and Transfer between accounts. Preserve the original source kind and any
+more specific refund, reversal, or withdrawal evidence in details. Do not
+force an unknown movement into one of these choices without a person acting.
+Missing amount or usable currency also remains outside currency totals until
+resolved. The implementation prompt in `docs/sprint-1-review-clarity-prompt.md`
+defines the bounded UI and verification work for this decision.
