@@ -29,3 +29,16 @@ The participant said the revised feed was substantially more usable, but the fin
 The owner reported feedback from one person: the current screen felt aggressive and overwhelming, and did not feel designed for mobile use. The requested direction is a compact summary that foregrounds detected activity, keeps Needs review closed until opened, and opens transaction details on demand in a mobile sheet. Treat this as a qualitative report from the owner; it is not an observed timed/manual comparison, and it does not establish that the changes improve review time or outcomes.
 
 The exercise still needs an observed participant using the changed UI. Compare app review with manual reconstruction using the same fictional notices, and record the participant's explanation of the totals, actions, errors, and coverage understanding. Sprint 1 remains open until that exercise and the existing final acceptance checks are completed.
+
+## Source and filter follow-up — 2026-10-01
+
+The owner also reported that the participant wanted a friendlier distinction between income and expense, a quick way to show just one type, and the bank, account, or card behind each activity. The same person saw multi-bank and multi-account activity as the potential value beyond one bank's app. This is qualitative feedback reported by the owner, not a measured usability result.
+
+During the still-open human exercise, ask the participant to:
+
+1. Find an income, an expense, and an unclassified item. Explain the different money effects.
+2. Find which bank, account, and card the fictional Exact Corner purchase names. Open its details and point to the original notice evidence. Find one activity with no identified source and say what remains unknown.
+3. Filter to Income, then search for a merchant and choose a wallet. Explain why the list changes while the selected week's detected net flow stays the same. Ask whether the wording makes clear that the amount is detected flow, not money remaining.
+4. Correct a wallet in the detail sheet and undo it. Check whether the participant can still distinguish the notice's source facts from their own assignment.
+
+Record task completion, time or actions when possible, wrong interpretations, corrections, and the participant's own explanation. The added fixtures and automated checks do not close this human exercise.

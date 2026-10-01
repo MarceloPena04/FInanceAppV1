@@ -25,6 +25,8 @@ export interface CanonicalCapture {
     /** A source-supplied account or payment-instrument identity, when safe to retain. */
     accountReference?: string;
     paymentInstrumentReference?: string;
+    /** The institution named by the source, distinct from the delivery provider. */
+    institutionName?: string;
     sender?: string;
     subject?: string;
     applicationId?: string;

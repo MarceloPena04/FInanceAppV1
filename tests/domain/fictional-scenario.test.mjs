@@ -73,6 +73,6 @@ test('confirmation can be undone without changing source evidence',()=>{
 });
 test('all committed captures pass through one parser path with inspectable outcomes',()=>{
  const s=data.reduce((a,f)=>processCapture(a,f.id,f.capture),EMPTY_SCENARIO);
- assert.equal(s.traces.length,38);assert.equal(s.traces.filter(t=>t.outcome==='candidate').length+s.traces.filter(t=>t.outcome==='incomplete').length+s.traces.filter(t=>t.outcome==='rejected').length,38);
+ assert.equal(s.traces.length,40);assert.equal(s.traces.filter(t=>t.outcome==='candidate').length+s.traces.filter(t=>t.outcome==='incomplete').length+s.traces.filter(t=>t.outcome==='rejected').length,40);
  console.log('FULL_FIXTURE_OUTCOMES',JSON.stringify(Object.fromEntries(['candidate','incomplete','rejected'].map(k=>[k,s.traces.filter(t=>t.outcome===k).length]))));
 });

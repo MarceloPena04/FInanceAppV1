@@ -52,37 +52,61 @@ button, select, summary, a, [role="button"] { touch-action: manipulation; }
 
 ::selection { background: #c8eee4; color: #153b35; }
 
-/* The app is a compact review tool; keep the reading column comfortable. */
+/* The activity view keeps source and direction legible on a small phone. */
 .finance-shell {
   width: min(100% - 2rem, 62rem);
   margin-inline: auto;
   padding-block: max(1rem, env(safe-area-inset-top)) calc(2rem + env(safe-area-inset-bottom));
 }
 
-.weekly-sticky {
+.activity-sticky {
   position: fixed;
   z-index: 30;
   inset-inline: 0;
   top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.35rem 1.25rem;
-  min-height: 3.25rem;
-  padding: calc(0.65rem + env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.65rem max(1rem, env(safe-area-inset-left));
+  padding: calc(0.5rem + env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) 0.65rem max(0.75rem, env(safe-area-inset-left));
   border-bottom: 1px solid rgb(225 231 228 / 90%);
-  background: rgb(255 255 255 / 94%);
+  background: rgb(255 255 251 / 97%);
   box-shadow: 0 8px 28px rgb(24 34 48 / 8%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
+.activity-sticky[data-visible="false"] { display: none; }
+.activity-sticky__inner { width: min(100%, 62rem); margin: auto; }
+.activity-sticky__flow { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0 0.25rem 0.35rem; font-size: 0.8rem; color: var(--muted); }
+.activity-sticky__flow b { font-size: 1.1rem; color: var(--foreground); white-space: nowrap; }
 
-.weekly-sticky[hidden] { display: none; }
-.weekly-sticky[data-visible="false"] { display: none; }
-.weekly-sticky > span,
-.weekly-sticky > b { white-space: nowrap; font-size: 0.875rem; }
-.weekly-sticky > b { font-size: 1rem; }
+.activity-panel { min-width: 0; background: #fffefa; }
+.activity-panel__heading { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
+.activity-toolbar { min-width: 0; max-width: 100%; margin-top: 1rem; }
+.activity-controls { display: grid; min-width: 0; width: 100%; gap: 0.65rem; }
+.activity-controls__top, .activity-controls__bottom { display: flex; min-width: 0; gap: 0.6rem; align-items: center; }
+.activity-controls__search, .activity-controls__wallet { min-height: 2.75rem; border: 1px solid #d0d9d4; border-radius: 0.85rem; background: white; padding: 0.5rem 0.8rem; font-size: 0.9rem; }
+.activity-controls__search { flex: 1 1 14rem; min-width: 0; }
+.activity-controls__wallet { flex: 0 1 14rem; min-width: 0; }
+.activity-controls__bottom { justify-content: space-between; overflow-x: auto; padding-bottom: 0.1rem; }
+.activity-controls__chips, .activity-controls__period { display: flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
+.activity-controls__chips button, .activity-controls__period button { min-height: 2.4rem; border-radius: 0.75rem; padding: 0.35rem 0.7rem; color: #46544f; font-size: 0.82rem; font-weight: 650; }
+.activity-controls button[aria-pressed="true"] { background: #d8f4e4; color: #145b3e; }
+.activity-controls__period { border-left: 1px solid #d5dfd9; padding-left: 0.45rem; }
+.activity-controls--compact { gap: 0.3rem; }
+.activity-controls--compact .activity-controls__search, .activity-controls--compact .activity-controls__wallet { min-height: 2.4rem; }
+
+.activity-card { display: grid; grid-template-columns: 2.3rem minmax(0, 1fr) auto; gap: 0.65rem; align-items: start; border: 1px solid #e2e8e3; border-radius: 1rem; background: white; padding: 0.8rem; box-shadow: 0 2px 8px rgb(24 34 48 / 4%); }
+.activity-card[data-direction="income"] { border-color: #c5e8d1; background: #f1fbf3; }
+.activity-card[data-direction="expense"] { border-color: #e6e2d7; background: #fffdf7; }
+.activity-card[data-direction="other"] { background: #f7f8f7; }
+.activity-card__icon { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; background: #e9eee9; color: #44534c; font-size: 1.2rem; font-weight: 800; }
+.activity-card[data-direction="income"] .activity-card__icon { background: #caedd5; color: #087f57; }
+.activity-card[data-direction="expense"] .activity-card__icon { background: #f3e4df; color: #9a4938; }
+.activity-card__body, .activity-card__right { display: flex; min-width: 0; flex-direction: column; gap: 0.17rem; }
+.activity-card__title { overflow-wrap: anywhere; font-weight: 750; }
+.activity-card__source { overflow-wrap: anywhere; font-size: 0.82rem; color: #43564c; }
+.activity-card__meta, .activity-card__right small { font-size: 0.72rem; color: var(--muted); }
+.activity-card__right { align-items: end; text-align: right; }
+.activity-card__right strong { font-size: 0.95rem; white-space: nowrap; }
+.activity-card[data-direction="income"] .activity-card__right strong { color: var(--income); }
+.activity-card[data-direction="expense"] .activity-card__right strong { color: #a74133; }
 
 /* Native <dialog> provides Escape handling and modal focus behavior. */
 .transaction-dialog {
@@ -144,9 +168,11 @@ button, select, summary, a, [role="button"] { touch-action: manipulation; }
   padding: max(0.75rem, env(safe-area-inset-top)) 1rem calc(2rem + env(safe-area-inset-bottom));
   }
 
-  .weekly-sticky {
-    padding: calc(0.65rem + env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) 0.65rem max(0.75rem, env(safe-area-inset-left));
-  }
+  .activity-controls__top { flex-wrap: wrap; }
+  .activity-controls__wallet { flex: 1 1 10rem; }
+  .activity-card { grid-template-columns: 2rem minmax(0, 1fr) auto; gap: 0.5rem; padding: 0.7rem; }
+  .activity-card__icon { width: 2rem; height: 2rem; }
+  .activity-card__right strong { max-width: 6.8rem; white-space: normal; }
 
   .transaction-dialog {
     position: fixed;
@@ -173,7 +199,8 @@ button, select, summary, a, [role="button"] { touch-action: manipulation; }
 
 @media (max-width: 360px) {
   .finance-shell { padding-inline: 0.75rem; }
-  .weekly-sticky { padding-inline: 0.5rem; }
+  .activity-sticky { padding-inline: 0.5rem; }
+  .activity-controls__chips button, .activity-controls__period button { padding-inline: 0.5rem; }
   .transaction-dialog { border-radius: 1rem 1rem 0 0; }
 }
 

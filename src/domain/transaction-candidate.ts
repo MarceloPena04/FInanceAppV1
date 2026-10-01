@@ -32,8 +32,15 @@ export type CandidateDisposition = "active" | "excluded";
 export type CandidateSettlementState = "unknown" | "pending" | "finalized";
 
 export interface SourceEvidence {
-  field: "amount" | "currency" | "occurredAt" | "merchantText" | "kind";
+  field: "amount" | "currency" | "occurredAt" | "merchantText" | "kind" | "institution" | "account" | "card";
   excerpt: string;
+  origin?: "text" | "metadata";
+}
+
+export interface ObservedFundingSource {
+  institution?: string;
+  account?: string;
+  card?: string;
 }
 
 /** Facts copied from a source. Omit a field when that fact is unavailable. */
@@ -43,6 +50,7 @@ export interface SourceDerivedFacts {
   occurredAt?: string;
   merchantText?: string;
   kind?: TransactionKind;
+  fundingSource?: ObservedFundingSource;
   evidence: SourceEvidence[];
 }
 

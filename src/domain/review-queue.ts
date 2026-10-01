@@ -1,4 +1,4 @@
-import { effectiveValues, groupingDate, type TransactionLifecycle } from "./transaction-lifecycle.ts";
+import { effectiveValues, groupingDate, sourceIdentityConflict, type TransactionLifecycle } from "./transaction-lifecycle.ts";
 import { calculateReportingMetrics, reportingEventEffect, type ReportingCurrency } from "./reporting-currency.ts";
 import { confirmRecord, type ScenarioState } from "./fictional-scenario.ts";
 
@@ -6,6 +6,7 @@ export function attentionReasons(record: TransactionLifecycle, records: Transact
   const reasons: string[] = [];
   if (records.some(item => item.relationships.some(rel => rel.kind === "possible_duplicate_of" && (item.id === record.id || rel.targetId === record.id)))) reasons.push("Possible duplicate");
   if (record.evidenceConflict) reasons.push("Later source evidence conflicts");
+  if (sourceIdentityConflict(record) && !record.userOverrides.walletLabel) reasons.push("Source account or card conflicts: choose a wallet");
   if (effectiveValues(record).eventType === "unknown") reasons.push("Type unclassified: choose Expense, Income, or Transfer between accounts");
   if (!effectiveValues(record).currency) reasons.push("Currency missing: choose a currency");
   if (effectiveValues(record).currencyBasis === "assumed_default") reasons.push(`Currency assumed: ${effectiveValues(record).currency} default; review or change currency`);

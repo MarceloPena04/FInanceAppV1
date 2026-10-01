@@ -1,7 +1,7 @@
 import type { CanonicalCapture } from "./canonical-capture";
 import type { TransactionKind } from "./transaction-candidate";
 import { createTransactionParser } from "../parser/transaction-parser.ts";
-import { TransactionLifecycleStore, calculateCalendarWeekMetrics, confirm, effectiveValues, groupingDate, type TransactionLifecycle } from "./transaction-lifecycle.ts";
+import { TransactionLifecycleStore, calculateCalendarWeekMetrics, confirm, effectiveValues, groupingDate, sourceIdentityConflict, type TransactionLifecycle } from "./transaction-lifecycle.ts";
 import { isReplaySuppressed, sourceIdentityFor, type ReviewSnapshot } from "./review-persistence.ts";
 
 export interface CaptureTrace { order: number; id: string; capture: CanonicalCapture; outcome: "candidate" | "incomplete" | "rejected" | "suppressed"; reason: string; eventId?: string; lifecycle?: string; matchEvidence?: string[]; evidence?: string[] }
@@ -65,7 +65,7 @@ function restoreDuplicateConfirmation(record: TransactionLifecycle): Transaction
 }
 function canComplete(record: TransactionLifecycle): boolean {
   const value = effectiveValues(record);
-  return record.disposition === "active" && value.amountMinor !== undefined && !!value.currency && value.eventType !== "unknown" && !record.evidenceConflict;
+  return record.disposition === "active" && value.amountMinor !== undefined && !!value.currency && value.eventType !== "unknown" && !record.evidenceConflict && (!sourceIdentityConflict(record) || !!record.userOverrides.walletLabel);
 }
 
 export function weeks(records: TransactionLifecycle[]): string[] { return [...new Set(records.map(r => { const d = groupingDate(r).value; if (!d) return undefined; const date = new Date(d.length === 10 ? `${d}T00:00:00Z` : d); if (!Number.isFinite(date.getTime())) return undefined; date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7); return date.toISOString().slice(0,10); }).filter((v):v is string=>!!v))].sort(); }

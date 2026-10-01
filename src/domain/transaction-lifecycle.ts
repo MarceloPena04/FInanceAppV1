@@ -31,6 +31,8 @@ export interface SourceProvenance {
   provider?: string;
   sourceEventId?: string;
   transactionReference?: string;
+  institutionName?: string;
+  accountReference?: string;
   paymentInstrumentReference?: string;
 }
 
@@ -43,6 +45,9 @@ export interface UserTransactionOverrides {
   merchantLabel?: string;
   category?: string;
   comment?: string;
+  /** A person's wallet label is separate from every source observation. */
+  walletLabel?: string;
+  walletId?: string;
 }
 
 /** The current system reading of source evidence. It can be recomputed later. */
@@ -187,7 +192,9 @@ function provenanceFrom(capture: CanonicalCapture): SourceProvenance {
     ...(capture.provider && { provider: capture.provider }),
     ...(capture.metadata.externalId && { sourceEventId: capture.metadata.externalId }),
     ...(transactionReference(capture) && { transactionReference: transactionReference(capture) }),
-    ...(instrument(capture) && { paymentInstrumentReference: instrument(capture) }),
+    ...(capture.metadata.institutionName && { institutionName: capture.metadata.institutionName }),
+    ...(capture.metadata.accountReference && { accountReference: capture.metadata.accountReference }),
+    ...(capture.metadata.paymentInstrumentReference && { paymentInstrumentReference: capture.metadata.paymentInstrumentReference }),
   };
 }
 
@@ -211,9 +218,26 @@ function hasSourcePrecision(candidate: TransactionCandidate, timestamp: string |
   );
 }
 
-function instrument(capture: CanonicalCapture): string | undefined {
-  const value = capture.metadata.paymentInstrumentReference ?? capture.metadata.accountReference;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+/** Competing explicit identities stay visible until a person resolves the wallet. */
+export function sourceIdentityConflict(record: TransactionLifecycle): boolean {
+  const differing = (values: Array<string | undefined>) => new Set(values.filter((value): value is string => !!value).map(value => value.trim().toLowerCase())).size > 1;
+  const sources = record.sourceCandidates.map(item => item.sourceFacts.fundingSource);
+  const notices = record.sourceProvenance;
+  const contradictoryCapture = record.sourceCandidates.some(candidate => {
+    const observed = candidate.sourceFacts.fundingSource;
+    const notice = notices.find(item => item.captureId === candidate.captureId);
+    if (!observed || !notice) return false;
+    const suffix = (reference: string | undefined) => reference?.match(/\d{2,4}$/)?.[0];
+    return !!(observed.institution && notice.institutionName && observed.institution.toLowerCase() !== notice.institutionName.toLowerCase()) ||
+      !!(observed.account && suffix(notice.accountReference) && !observed.account.endsWith(suffix(notice.accountReference)!)) ||
+      !!(observed.card && suffix(notice.paymentInstrumentReference) && !observed.card.endsWith(suffix(notice.paymentInstrumentReference)!));
+  });
+  return contradictoryCapture || differing(sources.map(source => source?.institution)) ||
+    differing(sources.map(source => source?.account)) ||
+    differing(sources.map(source => source?.card)) ||
+    differing(notices.map(source => source.institutionName)) ||
+    differing(notices.map(source => source.accountReference)) ||
+    differing(notices.map(source => source.paymentInstrumentReference));
 }
 
 function exactCrossSourceMatch(
@@ -224,6 +248,11 @@ function exactCrossSourceMatch(
   if (record.sourceProvenance.some((item) => item.sourceIdentity.startsWith(`${sourceName(capture)}:`))) return false;
   const left = record.interpretation;
   const right = interpretationFrom(candidate);
+  const incomingSource = candidate.sourceFacts.fundingSource;
+  if (record.sourceCandidates.some(item => {
+    const existingSource = item.sourceFacts.fundingSource;
+    return (["institution", "account", "card"] as const).some(field => existingSource?.[field] && incomingSource?.[field] && existingSource[field]?.toLowerCase() !== incomingSource[field]?.toLowerCase());
+  })) return false;
   if (
     (left.settlementState === "pending" && right.settlementState === "finalized") ||
     (left.settlementState === "finalized" && right.settlementState === "pending")
@@ -235,9 +264,13 @@ function exactCrossSourceMatch(
     left.eventType === right.eventType &&
     !!normalizedMerchant(left.merchantText) && normalizedMerchant(left.merchantText) === normalizedMerchant(right.merchantText) &&
     !record.sourceProvenance.some((item) => {
-      const existingInstrument = item.paymentInstrumentReference;
-      const incomingInstrument = instrument(capture);
-      return !!existingInstrument && !!incomingInstrument && existingInstrument !== incomingInstrument;
+      const incomingBank = capture.metadata.institutionName;
+      if (item.institutionName && incomingBank && item.institutionName.toLowerCase() !== incomingBank.toLowerCase()) return true;
+      const oldAccount = item.accountReference, newAccount = capture.metadata.accountReference;
+      const oldCard = item.paymentInstrumentReference, newCard = capture.metadata.paymentInstrumentReference;
+      if (oldAccount && newAccount) return oldAccount !== newAccount || !!oldCard && !!newCard && oldCard !== newCard;
+      if (oldCard && newCard) return oldCard !== newCard;
+      return !!(oldAccount || oldCard || newAccount || newCard);
     });
 }
 
@@ -313,7 +346,8 @@ export function confirmAll(records: TransactionLifecycle[]): TransactionLifecycl
 export function canConfirm(record: TransactionLifecycle): boolean {
   const values = effectiveValues(record);
   return record.disposition === "active" && record.deletionState === "active" &&
-    values.amountMinor !== undefined && !!values.currency && values.eventType !== "unknown" && !record.evidenceConflict;
+    values.amountMinor !== undefined && !!values.currency && values.eventType !== "unknown" && !record.evidenceConflict &&
+    (!sourceIdentityConflict(record) || !!record.userOverrides.walletLabel);
 }
 
 export function setDisposition(record: TransactionLifecycle, disposition: CandidateDisposition): TransactionLifecycle {
@@ -507,12 +541,16 @@ export class TransactionLifecycleStore {
     const alreadySeenCapture = existing.sourceCandidates.some(item => item.captureId === candidate.captureId);
     const interpretation = alreadySeenCapture ? existing.interpretation : interpretationAfterEvidence(existing.interpretation, incomingInterpretation);
     const changed = materialFingerprint(existing.interpretation) !== materialFingerprint(interpretation);
+    const candidates = appendSourceCandidate(existing, candidate);
+    const provenance = appendProvenance(existing, capture);
+    const identityConflict = sourceIdentityConflict({ ...existing, sourceCandidates: candidates, sourceProvenance: provenance });
+    const newIdentityConflict = identityConflict && !sourceIdentityConflict(existing);
     const updated: TransactionLifecycle = {
       ...existing,
-      sourceCandidates: appendSourceCandidate(existing, candidate),
-      sourceProvenance: appendProvenance(existing, capture),
+      sourceCandidates: candidates,
+      sourceProvenance: provenance,
       interpretation: changed ? interpretation : existing.interpretation,
-      ...(changed && existing.confirmationState === "confirmed" && { confirmationState: "needs_confirmation" as const }),
+      ...((changed || newIdentityConflict) && existing.confirmationState === "confirmed" && { confirmationState: "needs_confirmation" as const }),
       ...(changed && { attentionReasons: attentionReasons(interpretation) }),
       ...(changed && existing.confirmationState === "confirmed" && (existing.acceptedDefaults || existing.currencyAssumption) && {
         evidenceConflict: [

@@ -2,6 +2,7 @@ import type { CanonicalCapture } from "../domain/canonical-capture";
 import type {
   SourceDerivedFacts,
   SourceEvidence,
+  ObservedFundingSource,
   TransactionCandidate,
   TransactionKind,
 } from "../domain/transaction-candidate";
@@ -114,6 +115,28 @@ function extractKind(text: string, financialSignal: string): ExtractedKind {
   return { kind: "unknown", evidence: { field: "kind", excerpt: financialSignal } };
 }
 
+/** Only labelled source text or explicit adapter metadata supplies a funding source. */
+function extractFundingSource(capture: CanonicalCapture): { value?: ObservedFundingSource; evidence: SourceEvidence[] } {
+  const fields: Array<{ key: keyof ObservedFundingSource; label: SourceEvidence["field"]; pattern: RegExp; metadata?: string }> = [
+    { key: "institution", label: "institution", pattern: /\bBank:\s*([^.;\n]+)/i, metadata: capture.metadata.institutionName },
+    { key: "account", label: "account", pattern: /\bAccount ending\s*([0-9]{2,4})\b/i, metadata: capture.metadata.accountReference },
+    { key: "card", label: "card", pattern: /\bCard ending\s*([0-9]{2,4})\b/i, metadata: capture.metadata.paymentInstrumentReference },
+  ];
+  const value: ObservedFundingSource = {};
+  const evidence: SourceEvidence[] = [];
+  for (const field of fields) {
+    const match = field.pattern.exec(capture.rawText);
+    if (match) {
+      value[field.key] = field.key === "institution" ? match[1].trim() : `••${match[1]}`;
+      evidence.push({ field: field.label, excerpt: match[0], origin: "text" });
+    } else if (field.metadata) {
+      value[field.key] = field.key === "institution" ? field.metadata : field.metadata.match(/\d{2,4}$/) ? `••${field.metadata.match(/\d{2,4}$/)?.[0]}` : "reference supplied";
+    }
+    if (field.metadata) evidence.push({ field: field.label, excerpt: `metadata.${field.key}: ${field.metadata}`, origin: "metadata" });
+  }
+  return { ...(Object.keys(value).length && { value }), evidence };
+}
+
 /**
  * Parses only explicit source text. It deliberately has no database, provider,
  * categorization, duplicate, or reconciliation knowledge.
@@ -130,11 +153,13 @@ export function createTransactionParser(options: TransactionParserOptions = {}):
       const merchant = extractMerchant(capture.rawText);
       const occurredAt = extractOccurredAt(capture.rawText);
       const kind = extractKind(capture.rawText, financialSignal[0]);
+      const fundingSource = extractFundingSource(capture);
       const evidence = [
         ...(amount?.evidence ?? []),
         ...(merchant ? [merchant.evidence] : []),
         ...(occurredAt ? [occurredAt.evidence] : []),
         kind.evidence,
+        ...fundingSource.evidence,
       ];
       const sourceFacts: SourceDerivedFacts = {
         ...(amount && { amountMinor: amount.amountMinor }),
@@ -142,6 +167,7 @@ export function createTransactionParser(options: TransactionParserOptions = {}):
         ...(merchant && { merchantText: merchant.value }),
         ...(occurredAt && { occurredAt: occurredAt.value }),
         kind: kind.kind,
+        ...(fundingSource.value && { fundingSource: fundingSource.value }),
         evidence,
       };
 
