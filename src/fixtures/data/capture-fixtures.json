@@ -968,7 +968,7 @@
           "sourceFacts": {
             "amountMinor": 1750,
             "merchantText": "Example Cafe",
-            "kind": "unknown",
+            "kind": "purchase",
             "evidence": [
               {
                 "field": "amount",
@@ -980,7 +980,7 @@
               },
               {
                 "field": "kind",
-                "excerpt": "Payment completed"
+                "excerpt": "Payment completed: 17.50 at Example Cafe"
               }
             ]
           },

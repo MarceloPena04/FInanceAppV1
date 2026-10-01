@@ -81,3 +81,9 @@ force an unknown movement into one of these choices without a person acting.
 Missing amount or usable currency also remains outside currency totals until
 resolved. The implementation prompt in `docs/sprint-1-review-clarity-prompt.md`
 defines the bounded UI and verification work for this decision.
+
+## 2026-10-01 owner refinement — bounded purchase, locked currency, editable date
+
+This newer decision qualifies the missing-currency rule above for the fictional demo. The explicit source wording `Payment completed: [amount] at [merchant]` supports a purchase classification; other unknown movements remain unsigned until a person chooses their type. If a known-direction candidate omits source currency, lock the app's selected default currency once at first processing and label it as an assumption, never a source fact. It may affect detected flow before review but stays in individual attention. Changing reporting currency converts that locked amount and cannot reinterpret the source number. User correction outranks explicit source currency, which outranks the assumption. Later conflicting source currency returns a confirmed item to review while holding its accepted effect until resolved.
+
+The review editor highlights only fields needing a decision; editing one field must not turn unchanged source facts into user corrections. It permits a date-only user correction with an Undo action and a distinct date basis. Original source date and timestamp evidence remain inspectable. These machine behaviors do not close Sprint 1 without the observed comparison in `docs/human-exercise.md`.

@@ -80,6 +80,8 @@ export interface TransactionLifecycle {
   attentionReasons: string[];
   /** Kept with an active event only; permanent deletion removes this history. */
   actionHistory?: ReviewAction[];
+  /** A selected demo default locked when a source omitted its currency. */
+  currencyAssumption?: { currency: string; basis: "chosen_app_default" };
   acceptedDefaults?: { eventType?: "generic_expense"; currency?: string; currencyBasis?: "source_profile_rule" | "chosen_app_default" };
   evidenceConflict?: string;
   duplicateReviewBefore?: CandidateConfirmationState;
@@ -91,6 +93,10 @@ export interface EffectiveTransactionValues {
   merchantText?: string;
   occurredAt?: string;
   eventType: TransactionKind | "generic_expense";
+  /** Where the displayed currency comes from. Source facts remain separate. */
+  currencyBasis?: "user_corrected" | "source" | "assumed_default";
+  /** A date-only correction remains date-only and never supplies a time. */
+  occurredAtBasis?: "user_corrected_date" | "source_event_date";
 }
 
 export interface CurrencyDetectedMetrics {
@@ -266,13 +272,20 @@ function interpretationAfterEvidence(
 }
 
 export function effectiveValues(record: TransactionLifecycle): EffectiveTransactionValues {
+  const currency = record.userOverrides.currency ??
+    (record.evidenceConflict ? record.currencyAssumption?.currency : undefined) ??
+    record.interpretation.currency ?? record.currencyAssumption?.currency ??
+    (record.evidenceConflict ? record.acceptedDefaults?.currency : undefined) ?? record.acceptedDefaults?.currency;
+  const currencyBasis = record.userOverrides.currency !== undefined ? "user_corrected" as const :
+    record.evidenceConflict && record.currencyAssumption?.currency ? "assumed_default" as const :
+    record.interpretation.currency ? "source" as const :
+    record.currencyAssumption?.currency ? "assumed_default" as const :
+    record.acceptedDefaults?.currency ? "assumed_default" as const : undefined;
   return {
     ...(record.userOverrides.amountMinor !== undefined
       ? { amountMinor: record.userOverrides.amountMinor }
       : record.interpretation.amountMinor !== undefined && { amountMinor: record.interpretation.amountMinor }),
-    ...(record.userOverrides.currency ?? (record.evidenceConflict ? record.acceptedDefaults?.currency : undefined) ?? record.interpretation.currency ?? record.acceptedDefaults?.currency
-      ? { currency: record.userOverrides.currency ?? (record.evidenceConflict ? record.acceptedDefaults?.currency : undefined) ?? record.interpretation.currency ?? record.acceptedDefaults?.currency }
-      : {}),
+    ...(currency ? { currency } : {}),
     ...(record.userOverrides.merchantLabel !== undefined
       ? { merchantText: record.userOverrides.merchantLabel }
       : record.interpretation.merchantText && { merchantText: record.interpretation.merchantText }),
@@ -280,6 +293,10 @@ export function effectiveValues(record: TransactionLifecycle): EffectiveTransact
       ? { occurredAt: record.userOverrides.occurredAt ?? record.interpretation.occurredAt }
       : {}),
     eventType: record.userOverrides.eventType ?? record.interpretation.eventType,
+    ...(currencyBasis ? { currencyBasis } : {}),
+    ...(record.userOverrides.occurredAt !== undefined
+      ? { occurredAtBasis: "user_corrected_date" as const }
+      : record.interpretation.occurredAt ? { occurredAtBasis: "source_event_date" as const } : {}),
   };
 }
 
@@ -407,11 +424,12 @@ export function calculateDetectedMetrics(records: TransactionLifecycle[]): Detec
   };
 }
 
-export type DateBasis = "source_event_date" | "source_message_date" | "first_seen";
+export type DateBasis = "user_corrected_date" | "source_event_date" | "source_message_date" | "first_seen";
 
 /** Date-only source values stay date-only; UTC is only this fictional demo's grouping convention. */
 export function groupingDate(record: TransactionLifecycle): { value?: string; basis: DateBasis } {
   const values = effectiveValues(record);
+  if (record.userOverrides.occurredAt !== undefined) return { value: record.userOverrides.occurredAt, basis: "user_corrected_date" };
   if (values.occurredAt) return { value: values.occurredAt, basis: "source_event_date" };
   const capturedAt = record.sourceCandidates.find((item) => item.capturedAt)?.capturedAt;
   if (capturedAt) return { value: capturedAt, basis: "source_message_date" };
@@ -496,10 +514,11 @@ export class TransactionLifecycleStore {
       interpretation: changed ? interpretation : existing.interpretation,
       ...(changed && existing.confirmationState === "confirmed" && { confirmationState: "needs_confirmation" as const }),
       ...(changed && { attentionReasons: attentionReasons(interpretation) }),
-      ...(changed && existing.acceptedDefaults && {
+      ...(changed && existing.confirmationState === "confirmed" && (existing.acceptedDefaults || existing.currencyAssumption) && {
         evidenceConflict: [
-          existing.acceptedDefaults.currency && interpretation.currency && existing.acceptedDefaults.currency !== interpretation.currency ? `Accepted default currency ${existing.acceptedDefaults.currency}; new source currency ${interpretation.currency}` : "",
-          existing.acceptedDefaults.eventType && interpretation.eventType !== "unknown" && interpretation.eventType !== "purchase" ? `Accepted generic expense; new source type ${interpretation.eventType}` : "",
+          existing.currencyAssumption?.currency && interpretation.currency && existing.currencyAssumption.currency !== interpretation.currency ? `Assumed default currency ${existing.currencyAssumption.currency}; new source currency ${interpretation.currency}` : "",
+          existing.acceptedDefaults?.currency && interpretation.currency && existing.acceptedDefaults.currency !== interpretation.currency ? `Accepted default currency ${existing.acceptedDefaults.currency}; new source currency ${interpretation.currency}` : "",
+          existing.acceptedDefaults?.eventType && interpretation.eventType !== "unknown" && interpretation.eventType !== "purchase" ? `Accepted generic expense; new source type ${interpretation.eventType}` : "",
         ].filter(Boolean).join("; ") || undefined,
       }),
       ...(changed && { actionHistory: [...(existing.actionHistory ?? []), { id: `${existing.id}:evidence:${candidate.captureId}`, at: candidate.processedAt, kind: "evidence_update" as const, detail: `New source reading: amount ${existing.interpretation.amountMinor ?? "missing"} → ${interpretation.amountMinor ?? "missing"}; currency ${existing.interpretation.currency ?? "missing"} → ${interpretation.currency ?? "missing"}; type ${existing.interpretation.eventType} → ${interpretation.eventType}. Confirmation requires review.` }] }),

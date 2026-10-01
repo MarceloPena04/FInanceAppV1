@@ -8,6 +8,7 @@ export function attentionReasons(record: TransactionLifecycle, records: Transact
   if (record.evidenceConflict) reasons.push("Later source evidence conflicts");
   if (effectiveValues(record).eventType === "unknown") reasons.push("Type unclassified: choose Expense, Income, or Transfer between accounts");
   if (!effectiveValues(record).currency) reasons.push("Currency missing: choose a currency");
+  if (effectiveValues(record).currencyBasis === "assumed_default") reasons.push(`Currency assumed: ${effectiveValues(record).currency} default; review or change currency`);
   if (effectiveValues(record).amountMinor === undefined) reasons.push("Amount missing");
   if (["transfer", "withdrawal"].includes(effectiveValues(record).eventType)) reasons.push("Neutral money movement");
   return reasons;

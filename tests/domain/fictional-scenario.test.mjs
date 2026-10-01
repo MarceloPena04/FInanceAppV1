@@ -23,19 +23,19 @@ test('independent focused ledger: parser outcomes, merges, unresolved pairs and 
  assert.equal(get(s,'missing-amount'),undefined);assert.match(s.traces.find(t=>t.id==='missing-amount').reason,/no amount/);
  assert.equal(s.traces.at(-1).outcome,'rejected');
 });
-test('accepted defaults remain user decisions, conflict holds prior impact and requires review',()=>{
+test('a locked missing-currency assumption affects the selected default and holds its prior impact for conflicting source evidence',()=>{
  let s={...EMPTY_SCENARIO,defaultCurrency:'EUR'};s=add(add(s,'missing-merchant'),'payment-without-currency');
  assert.equal(week(s,'2026-09-21','USD'),0);assert.equal(eventEffect(get(s,'missing-merchant'),'2026-09-21','USD').provisional,0);
- assert.equal(week(s,'2026-08-31','EUR'),0);
- s=confirmRecord(s,get(s,'missing-merchant').id);assert.equal(get(s,'missing-merchant').confirmationState,'needs_confirmation');s=changeRecord(s,get(s,'missing-merchant').id,'edited','Explicit expense',r=>({...r,userOverrides:{...r.userOverrides,eventType:'generic_expense'}}));s=confirmRecord(s,get(s,'missing-merchant').id);s=changeRecord(s,get(s,'payment-without-currency').id,'edited','Explicit expense',r=>({...r,userOverrides:{...r.userOverrides,eventType:'generic_expense',currency:'EUR'}}));s=confirmRecord(s,get(s,'payment-without-currency').id);
+ assert.equal(week(s,'2026-08-31','EUR'),-1750);
+ s=confirmRecord(s,get(s,'missing-merchant').id);assert.equal(get(s,'missing-merchant').confirmationState,'needs_confirmation');s=changeRecord(s,get(s,'missing-merchant').id,'edited','Explicit expense',r=>({...r,userOverrides:{...r.userOverrides,eventType:'generic_expense'}}));s=confirmRecord(s,get(s,'missing-merchant').id);s=confirmRecord(s,get(s,'payment-without-currency').id);
  assert.equal(week(s,'2026-09-21','USD'),-850);assert.equal(week(s,'2026-08-31','EUR'),-1750);
- const r=get(s,'payment-without-currency');assert.equal(r.sourceCandidates[0].sourceFacts.currency,undefined);assert.equal(r.sourceCandidates[0].sourceFacts.kind,'unknown');assert.equal(r.userOverrides.currency,'EUR');
- const capture={...entry('payment-without-currency').capture,captureId:'capture-028-later',rawText:'Refund issued: USD 17.50 from Example Cafe on 2026-09-04.'};
+ const r=get(s,'payment-without-currency');assert.equal(r.sourceCandidates[0].sourceFacts.currency,undefined);assert.equal(r.sourceCandidates[0].sourceFacts.kind,'purchase');assert.deepEqual(r.currencyAssumption,{currency:'EUR',basis:'chosen_app_default'});assert.equal(r.userOverrides.currency,undefined);
+ const capture={...entry('payment-without-currency').capture,captureId:'capture-028-later',rawText:'Payment completed: USD 17.50 at Example Cafe.'};
  s=processCapture(s,'later-refund',capture);assert.equal(get(s,'payment-without-currency').confirmationState,'needs_confirmation');assert.equal(get(s,'payment-without-currency').sourceCandidates.length,2);assert.equal(week(s,'2026-08-31','EUR'),-1750);
  assert.equal(get(s,'payment-without-currency').sourceCandidates.length,2);
  s=add(s,'payment-without-currency');assert.equal(get(s,'payment-without-currency').sourceCandidates.length,2);assert.equal(week(s,'2026-08-31','EUR'),-1750);
  s=changeRecord(s,r.id,'edited','Accept new source reading',x=>({...x,evidenceConflict:undefined,acceptedDefaults:undefined}));
- assert.equal(week(s,'2026-08-31','EUR'),-1750);assert.equal(week(s,'2026-08-31','USD'),0);
+ assert.equal(week(s,'2026-08-31','EUR'),0);assert.equal(week(s,'2026-08-31','USD'),-1750);
 });
 test('explicit edit and source currency outrank opt-in source rule; rule outranks chosen app default',()=>{
  let s={...EMPTY_SCENARIO,defaultCurrency:'EUR'};s=add(s,'payment-without-currency');const id=get(s,'payment-without-currency').id;
@@ -68,7 +68,7 @@ test('referenced finalization changes confirmed amount once; bulk preview is exa
 });
 test('confirmation can be undone without changing source evidence',()=>{
  let s={...EMPTY_SCENARIO,defaultCurrency:'EUR'};s=add(s,'payment-without-currency');const id=get(s,'payment-without-currency').id;
- s=confirmRecord(s,id);assert.equal(get(s,'payment-without-currency').confirmationState,'needs_confirmation');s=changeRecord(s,id,'edited','Explicit income',r=>({...r,userOverrides:{...r.userOverrides,eventType:'income',currency:'EUR'}}));s=confirmRecord(s,id);assert.equal(get(s,'payment-without-currency').confirmationState,'confirmed');
+ s=confirmRecord(s,id);assert.equal(get(s,'payment-without-currency').confirmationState,'confirmed');
  s=undoConfirmation(s,id);assert.equal(get(s,'payment-without-currency').confirmationState,'needs_confirmation');assert.equal(get(s,'payment-without-currency').sourceCandidates[0].sourceFacts.currency,undefined);assert.equal(get(s,'payment-without-currency').actionHistory.at(-1).kind,'confirmation_undone');
 });
 test('all committed captures pass through one parser path with inspectable outcomes',()=>{

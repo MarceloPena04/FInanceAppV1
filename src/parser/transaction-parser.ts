@@ -88,6 +88,15 @@ function extractOccurredAt(text: string): ExtractedText | undefined {
 }
 
 function extractKind(text: string, financialSignal: string): ExtractedKind {
+  // This is deliberately narrower than a general "payment completed" phrase:
+  // the source must state an amount paid at a named merchant. That gives the
+  // fictional review flow a source-backed purchase direction without turning
+  // unrelated completion notices into expenses.
+  const completedPaymentAtMerchant = /\bpayment completed\s*:\s*(?:[A-Z]{3}\s+)?\d+(?:\.\d{1,2})?\s+at\s+[^.!\n]+/i.exec(text);
+  if (completedPaymentAtMerchant) {
+    return { kind: "purchase", evidence: { field: "kind", excerpt: completedPaymentAtMerchant[0] } };
+  }
+
   const recognizedKinds: Array<[RegExp, TransactionKind]> = [
     [/\brefund (?:issued|posted)\b/i, "refund"],
     [/\b(?:credit|deposit) received\b/i, "income"],
