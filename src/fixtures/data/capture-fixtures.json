@@ -8,9 +8,12 @@
         "sourceType": "email",
         "provider": "fictional-ledger-mail",
         "capturedAt": "2026-09-28T08:42:00Z",
-        "rawText": "Purchase confirmed: EUR 12.99 at Blue Kettle Cafe on 2026-09-27.",
+        "rawText": "Purchase confirmed: EUR 12.99 at Blue Kettle Cafe on 2026-09-27. Bank: North Example Bank; Account ending 6621; Card ending 3434.",
         "metadata": {
           "externalId": "mail-001",
+          "institutionName": "North Example Bank",
+          "accountReference": "north-account-6621",
+          "paymentInstrumentReference": "north-card-3434",
           "sender": "alerts@fictional-ledger.example",
           "subject": "Purchase confirmed"
         }
@@ -25,6 +28,7 @@
             "occurredAt": "2026-09-27",
             "merchantText": "Blue Kettle Cafe",
             "kind": "purchase",
+            "fundingSource": { "institution": "North Example Bank", "account": "••6621", "card": "••3434" },
             "evidence": [
               {
                 "field": "amount",
@@ -88,9 +92,11 @@
         "captureId": "capture-003",
         "sourceType": "email",
         "capturedAt": "2026-09-26T16:00:00Z",
-        "rawText": "Credit received: USD 2400.00 from Fictional Studio payroll on 2026-09-26.",
+        "rawText": "Credit received: USD 2400.00 from Fictional Studio payroll on 2026-09-26. Bank: South Example Bank; Account ending 7732.",
         "metadata": {
           "externalId": "mail-003",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-7732",
           "sender": "updates@fictional-pay.example",
           "subject": "Credit received"
         }
@@ -105,6 +111,7 @@
             "occurredAt": "2026-09-26",
             "merchantText": "Fictional Studio payroll",
             "kind": "income",
+            "fundingSource": { "institution": "South Example Bank", "account": "••7732" },
             "evidence": [
               {
                 "field": "amount",
@@ -256,7 +263,9 @@
         "metadata": {
           "externalId": "mail-008",
           "sender": "alerts@fictional-ledger.example",
-          "subject": "Refund issued"
+          "subject": "Refund issued",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-7732"
         }
       },
       "expected": {
@@ -269,6 +278,7 @@
             "occurredAt": "2026-09-21",
             "merchantText": "Northwind Outfitters",
             "kind": "refund",
+            "fundingSource": { "institution": "South Example Bank", "account": "••7732" },
             "evidence": [
               {
                 "field": "amount",
@@ -607,7 +617,9 @@
         "metadata": {
           "externalId": "mail-017",
           "sender": "alerts@fictional-ledger.example",
-          "subject": "Transfer sent"
+          "subject": "Transfer sent",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-1122"
         }
       },
       "expected": {
@@ -619,6 +631,7 @@
             "currency": "EUR",
             "merchantText": "Savings Pocket",
             "kind": "transfer",
+            "fundingSource": { "institution": "South Example Bank", "account": "••1122" },
             "evidence": [
               {
                 "field": "amount",
@@ -880,9 +893,11 @@
         "sourceType": "push_notification",
         "provider": "Apple Pay",
         "capturedAt": "2026-09-06T12:45:00Z",
-        "rawText": "Apple Pay: EUR 16.80 paid to Willow Bakery.",
+        "rawText": "Apple Pay: EUR 16.80 paid to Willow Bakery. Bank: North Example Bank; Card ending 9088.",
         "metadata": {
           "externalId": "apple-pay-026",
+          "institutionName": "North Example Bank",
+          "paymentInstrumentReference": "north-card-9088",
           "applicationId": "com.example.wallet-fixture",
           "channel": "wallet_transaction"
         }
@@ -896,6 +911,7 @@
             "currency": "EUR",
             "merchantText": "Willow Bakery",
             "kind": "purchase",
+            "fundingSource": { "institution": "North Example Bank", "card": "••9088" },
             "evidence": [
               {
                 "field": "amount",
@@ -958,7 +974,9 @@
         "rawText": "Payment completed: 17.50 at Example Cafe.",
         "metadata": {
           "externalId": "fixture-028",
-          "channel": "synthetic"
+          "channel": "synthetic",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-7732"
         }
       },
       "expected": {
@@ -968,7 +986,8 @@
           "sourceFacts": {
             "amountMinor": 1750,
             "merchantText": "Example Cafe",
-            "kind": "unknown",
+            "kind": "purchase",
+            "fundingSource": { "institution": "South Example Bank", "account": "••7732" },
             "evidence": [
               {
                 "field": "amount",
@@ -980,7 +999,7 @@
               },
               {
                 "field": "kind",
-                "excerpt": "Payment completed"
+                "excerpt": "Payment completed: 17.50 at Example Cafe"
               }
             ]
           },
@@ -1036,20 +1055,20 @@
       "capture": {
         "captureId": "capture-031", "sourceType": "email", "provider": "fictional-ledger-mail",
         "capturedAt": "2026-09-29T10:00:00Z",
-        "rawText": "Purchase confirmed: EUR 8.50 at Exact Corner on 2026-09-29T09:58:12Z.",
-        "metadata": { "externalId": "mail-031", "accountReference": "card-88" }
+        "rawText": "Purchase confirmed: EUR 8.50 at Exact Corner on 2026-09-29T09:58:12Z. Bank: North Example Bank; Account ending 6621; Card ending 3434.",
+        "metadata": { "externalId": "mail-031", "institutionName": "North Example Bank", "accountReference": "north-account-6621", "paymentInstrumentReference": "north-card-3434" }
       },
-      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 850, "currency": "EUR", "occurredAt": "2026-09-29T09:58:12Z", "merchantText": "Exact Corner", "kind": "purchase", "evidence": [{ "field": "amount", "excerpt": "EUR 8.50" }] }, "inferred": {} } }
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 850, "currency": "EUR", "occurredAt": "2026-09-29T09:58:12Z", "merchantText": "Exact Corner", "kind": "purchase", "fundingSource": { "institution": "North Example Bank", "account": "••6621", "card": "••3434" }, "evidence": [{ "field": "amount", "excerpt": "EUR 8.50" }] }, "inferred": {} } }
     },
     {
       "id": "exact-cross-source-push",
       "capture": {
         "captureId": "capture-032", "sourceType": "push_notification", "provider": "fictional-ledger-app",
         "capturedAt": "2026-09-29T10:00:03Z",
-        "rawText": "Purchase confirmed: EUR 8.50 at Exact Corner on 2026-09-29T09:58:12Z.",
-        "metadata": { "externalId": "push-032", "accountReference": "card-88" }
+        "rawText": "Purchase confirmed: EUR 8.50 at Exact Corner on 2026-09-29T09:58:12Z. Bank: North Example Bank; Account ending 6621; Card ending 3434.",
+        "metadata": { "externalId": "push-032", "institutionName": "North Example Bank", "accountReference": "north-account-6621", "paymentInstrumentReference": "north-card-3434" }
       },
-      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 850, "currency": "EUR", "occurredAt": "2026-09-29T09:58:12Z", "merchantText": "Exact Corner", "kind": "purchase", "evidence": [{ "field": "amount", "excerpt": "EUR 8.50" }] }, "inferred": {} } }
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 850, "currency": "EUR", "occurredAt": "2026-09-29T09:58:12Z", "merchantText": "Exact Corner", "kind": "purchase", "fundingSource": { "institution": "North Example Bank", "account": "••6621", "card": "••3434" }, "evidence": [{ "field": "amount", "excerpt": "EUR 8.50" }] }, "inferred": {} } }
     },
     {
       "id": "sparse-cross-source-email",
@@ -1097,6 +1116,16 @@
         "outcome": "no_candidate",
         "reason": "A card limit is monetary information, not a financial event."
       }
+    },
+    {
+      "id": "wallet-conflict-email",
+      "capture": { "captureId": "capture-039", "sourceType": "email", "provider": "fictional-ledger-mail", "capturedAt": "2026-09-30T09:01:00Z", "rawText": "Purchase confirmed: EUR 5.00 at Wallet Conflict on 2026-09-30T09:00:00Z. Bank: North Example Bank; Account ending 1111.", "metadata": { "externalId": "mail-039", "transactionReference": "txn-wallet-conflict", "institutionName": "North Example Bank", "accountReference": "north-account-1111" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 500, "currency": "EUR", "occurredAt": "2026-09-30T09:00:00Z", "merchantText": "Wallet Conflict", "kind": "purchase", "fundingSource": { "institution": "North Example Bank", "account": "••1111" }, "evidence": [{ "field": "account", "excerpt": "Account ending 1111", "origin": "text" }] }, "inferred": {} } }
+    },
+    {
+      "id": "wallet-conflict-push",
+      "capture": { "captureId": "capture-040", "sourceType": "push_notification", "provider": "fictional-ledger-app", "capturedAt": "2026-09-30T09:01:03Z", "rawText": "Purchase confirmed: EUR 5.00 at Wallet Conflict on 2026-09-30T09:00:00Z. Bank: North Example Bank; Account ending 2222.", "metadata": { "externalId": "push-040", "transactionReference": "txn-wallet-conflict", "institutionName": "North Example Bank", "accountReference": "north-account-2222" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 500, "currency": "EUR", "occurredAt": "2026-09-30T09:00:00Z", "merchantText": "Wallet Conflict", "kind": "purchase", "fundingSource": { "institution": "North Example Bank", "account": "••2222" }, "evidence": [{ "field": "account", "excerpt": "Account ending 2222", "origin": "text" }] }, "inferred": {} } }
     }
   ]
 }

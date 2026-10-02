@@ -2,7 +2,7 @@
 
 Status: product direction agreed in conversation on 2026-09-29; implementation remains unbuilt. This record narrows the fictional-data review path. It does not authorize a real source, a verified balance, or a complete-finances claim.
 
-This decision record supersedes the older `unknown`-is-neutral metric row in `docs/detected-metrics.md` and the event-kind prerequisite for every monetary summary in `docs/product-contract.md`. The new exception is an explicitly labelled **provisional outflow** for an amount-and-currency candidate whose event type is still unknown. The older documents should be reconciled during implementation; other invariants remain in force.
+Historical rule below is superseded by the 2026-10-01 owner correction. This decision record once superseded the older `unknown`-is-neutral metric row in `docs/detected-metrics.md` and the event-kind prerequisite for every monetary summary in `docs/product-contract.md`. The new exception is an explicitly labelled **provisional outflow** for an amount-and-currency candidate whose event type is still unknown. The older documents should be reconciled during implementation; other invariants remain in force.
 
 ## Purpose and language
 
@@ -57,3 +57,33 @@ User-entered starting amount, manual transactions, estimated remaining money, ac
 ## Current code gap
 
 `src/domain/transaction-lifecycle.ts` has in-memory replay handling, confirmation, basic overrides, exclusion, and detected metrics; it does not persist after refresh, filter calendar weeks, retain an action history, support all money-affecting corrections, or implement deletion suppression. `src/app/page.tsx` is a hard-coded class mock, not this path. See `docs/product-contract.md`, `docs/detected-metrics.md`, and `tests/domain/transaction-lifecycle.test.mjs` for the prior boundary and tests.
+
+## 2026-09-30 owner amendment (supersedes blockers above)
+
+Confirm, Save and confirm, and eligible bulk confirmation accept unknown source type as generic expense and absent source currency from the person's chosen fictional-demo default without an interruption. Original unknown and missing values remain in source evidence; action history labels the accepted default. The opt-in source-profile rule, when configured, outranks the chosen app default; explicit source currency and user edits outrank both. Missing amount still blocks confirmation. Conflicting later source evidence shows old and new money readings, holds the accepted impact, and requires review. See the focused ledger in `docs/fictional-scenario-manifest.md`.
+
+## 2026-10-01 owner correction — no assumed outflow
+
+This newer decision supersedes every earlier rule in this document that treats
+an unknown event type as provisional outflow or silently accepts it as generic
+expense on confirmation. An event with unknown type remains unclassified and
+contributes zero to detected inflow, outflow, and net flow until the person
+explicitly chooses its type. Show its observed amount separately as money
+awaiting classification, without a plus or minus sign or a claim that it
+affects flow. Confirmation must not choose Expense for the person. An explicit
+source purchase or income may still affect detected flow before review; review
+state and money direction are separate.
+
+The main user choices for classifying an unknown movement are Expense, Income,
+and Transfer between accounts. Preserve the original source kind and any
+more specific refund, reversal, or withdrawal evidence in details. Do not
+force an unknown movement into one of these choices without a person acting.
+Missing amount or usable currency also remains outside currency totals until
+resolved. The implementation prompt in `docs/sprint-1-review-clarity-prompt.md`
+defines the bounded UI and verification work for this decision.
+
+## 2026-10-01 owner refinement — bounded purchase, locked currency, editable date
+
+This newer decision qualifies the missing-currency rule above for the fictional demo. The explicit source wording `Payment completed: [amount] at [merchant]` supports a purchase classification; other unknown movements remain unsigned until a person chooses their type. If a known-direction candidate omits source currency, lock the app's selected default currency once at first processing and label it as an assumption, never a source fact. It may affect detected flow before review but stays in individual attention. Changing reporting currency converts that locked amount and cannot reinterpret the source number. User correction outranks explicit source currency, which outranks the assumption. Later conflicting source currency returns a confirmed item to review while holding its accepted effect until resolved.
+
+The review editor highlights only fields needing a decision; editing one field must not turn unchanged source facts into user corrections. It permits a date-only user correction with an Undo action and a distinct date basis. Original source date and timestamp evidence remain inspectable. These machine behaviors do not close Sprint 1 without the observed comparison in `docs/human-exercise.md`.

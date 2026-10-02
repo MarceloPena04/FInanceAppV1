@@ -12,6 +12,7 @@ export type DeletionState = "active" | "soft_deleted";
 export type TransactionRelationshipKind =
   | "duplicate_of"
   | "possible_duplicate_of"
+  | "separate_from"
   | "refund_of"
   | "reverses"
   | "settlement_update_of";
@@ -30,6 +31,8 @@ export interface SourceProvenance {
   provider?: string;
   sourceEventId?: string;
   transactionReference?: string;
+  institutionName?: string;
+  accountReference?: string;
   paymentInstrumentReference?: string;
 }
 
@@ -42,6 +45,9 @@ export interface UserTransactionOverrides {
   merchantLabel?: string;
   category?: string;
   comment?: string;
+  /** A person's wallet label is separate from every source observation. */
+  walletLabel?: string;
+  walletId?: string;
 }
 
 /** The current system reading of source evidence. It can be recomputed later. */
@@ -57,7 +63,7 @@ export interface SystemTransactionInterpretation {
 export interface ReviewAction {
   id: string;
   at: string;
-  kind: "confirmed" | "excluded" | "restored" | "edited" | "duplicate_decision";
+  kind: "confirmed" | "confirmation_undone" | "excluded" | "restored" | "edited" | "duplicate_decision" | "evidence_update";
   detail: string;
 }
 
@@ -79,6 +85,11 @@ export interface TransactionLifecycle {
   attentionReasons: string[];
   /** Kept with an active event only; permanent deletion removes this history. */
   actionHistory?: ReviewAction[];
+  /** A selected demo default locked when a source omitted its currency. */
+  currencyAssumption?: { currency: string; basis: "chosen_app_default" };
+  acceptedDefaults?: { eventType?: "generic_expense"; currency?: string; currencyBasis?: "source_profile_rule" | "chosen_app_default" };
+  evidenceConflict?: string;
+  duplicateReviewBefore?: CandidateConfirmationState;
 }
 
 export interface EffectiveTransactionValues {
@@ -86,7 +97,11 @@ export interface EffectiveTransactionValues {
   currency?: string;
   merchantText?: string;
   occurredAt?: string;
-  eventType: TransactionKind;
+  eventType: TransactionKind | "generic_expense";
+  /** Where the displayed currency comes from. Source facts remain separate. */
+  currencyBasis?: "user_corrected" | "source" | "assumed_default";
+  /** A date-only correction remains date-only and never supplies a time. */
+  occurredAtBasis?: "user_corrected_date" | "source_event_date";
 }
 
 export interface CurrencyDetectedMetrics {
@@ -101,7 +116,7 @@ export interface CurrencyDetectedMetrics {
     detectedOutflowMinor: number;
     detectedInflowMinor: number;
   };
-  byEventType: Partial<Record<TransactionKind, { inflowMinor: number; outflowMinor: number }>>;
+  byEventType: Partial<Record<TransactionKind | "generic_expense", { inflowMinor: number; outflowMinor: number }>>;
 }
 
 export interface DetectedMetrics {
@@ -177,7 +192,9 @@ function provenanceFrom(capture: CanonicalCapture): SourceProvenance {
     ...(capture.provider && { provider: capture.provider }),
     ...(capture.metadata.externalId && { sourceEventId: capture.metadata.externalId }),
     ...(transactionReference(capture) && { transactionReference: transactionReference(capture) }),
-    ...(instrument(capture) && { paymentInstrumentReference: instrument(capture) }),
+    ...(capture.metadata.institutionName && { institutionName: capture.metadata.institutionName }),
+    ...(capture.metadata.accountReference && { accountReference: capture.metadata.accountReference }),
+    ...(capture.metadata.paymentInstrumentReference && { paymentInstrumentReference: capture.metadata.paymentInstrumentReference }),
   };
 }
 
@@ -201,9 +218,26 @@ function hasSourcePrecision(candidate: TransactionCandidate, timestamp: string |
   );
 }
 
-function instrument(capture: CanonicalCapture): string | undefined {
-  const value = capture.metadata.paymentInstrumentReference ?? capture.metadata.accountReference;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+/** Competing explicit identities stay visible until a person resolves the wallet. */
+export function sourceIdentityConflict(record: TransactionLifecycle): boolean {
+  const differing = (values: Array<string | undefined>) => new Set(values.filter((value): value is string => !!value).map(value => value.trim().toLowerCase())).size > 1;
+  const sources = record.sourceCandidates.map(item => item.sourceFacts.fundingSource);
+  const notices = record.sourceProvenance;
+  const contradictoryCapture = record.sourceCandidates.some(candidate => {
+    const observed = candidate.sourceFacts.fundingSource;
+    const notice = notices.find(item => item.captureId === candidate.captureId);
+    if (!observed || !notice) return false;
+    const suffix = (reference: string | undefined) => reference?.match(/\d{2,4}$/)?.[0];
+    return !!(observed.institution && notice.institutionName && observed.institution.toLowerCase() !== notice.institutionName.toLowerCase()) ||
+      !!(observed.account && suffix(notice.accountReference) && !observed.account.endsWith(suffix(notice.accountReference)!)) ||
+      !!(observed.card && suffix(notice.paymentInstrumentReference) && !observed.card.endsWith(suffix(notice.paymentInstrumentReference)!));
+  });
+  return contradictoryCapture || differing(sources.map(source => source?.institution)) ||
+    differing(sources.map(source => source?.account)) ||
+    differing(sources.map(source => source?.card)) ||
+    differing(notices.map(source => source.institutionName)) ||
+    differing(notices.map(source => source.accountReference)) ||
+    differing(notices.map(source => source.paymentInstrumentReference));
 }
 
 function exactCrossSourceMatch(
@@ -214,6 +248,11 @@ function exactCrossSourceMatch(
   if (record.sourceProvenance.some((item) => item.sourceIdentity.startsWith(`${sourceName(capture)}:`))) return false;
   const left = record.interpretation;
   const right = interpretationFrom(candidate);
+  const incomingSource = candidate.sourceFacts.fundingSource;
+  if (record.sourceCandidates.some(item => {
+    const existingSource = item.sourceFacts.fundingSource;
+    return (["institution", "account", "card"] as const).some(field => existingSource?.[field] && incomingSource?.[field] && existingSource[field]?.toLowerCase() !== incomingSource[field]?.toLowerCase());
+  })) return false;
   if (
     (left.settlementState === "pending" && right.settlementState === "finalized") ||
     (left.settlementState === "finalized" && right.settlementState === "pending")
@@ -225,9 +264,13 @@ function exactCrossSourceMatch(
     left.eventType === right.eventType &&
     !!normalizedMerchant(left.merchantText) && normalizedMerchant(left.merchantText) === normalizedMerchant(right.merchantText) &&
     !record.sourceProvenance.some((item) => {
-      const existingInstrument = item.paymentInstrumentReference;
-      const incomingInstrument = instrument(capture);
-      return !!existingInstrument && !!incomingInstrument && existingInstrument !== incomingInstrument;
+      const incomingBank = capture.metadata.institutionName;
+      if (item.institutionName && incomingBank && item.institutionName.toLowerCase() !== incomingBank.toLowerCase()) return true;
+      const oldAccount = item.accountReference, newAccount = capture.metadata.accountReference;
+      const oldCard = item.paymentInstrumentReference, newCard = capture.metadata.paymentInstrumentReference;
+      if (oldAccount && newAccount) return oldAccount !== newAccount || !!oldCard && !!newCard && oldCard !== newCard;
+      if (oldCard && newCard) return oldCard !== newCard;
+      return !!(oldAccount || oldCard || newAccount || newCard);
     });
 }
 
@@ -262,13 +305,20 @@ function interpretationAfterEvidence(
 }
 
 export function effectiveValues(record: TransactionLifecycle): EffectiveTransactionValues {
+  const currency = record.userOverrides.currency ??
+    (record.evidenceConflict ? record.currencyAssumption?.currency : undefined) ??
+    record.interpretation.currency ?? record.currencyAssumption?.currency ??
+    (record.evidenceConflict ? record.acceptedDefaults?.currency : undefined) ?? record.acceptedDefaults?.currency;
+  const currencyBasis = record.userOverrides.currency !== undefined ? "user_corrected" as const :
+    record.evidenceConflict && record.currencyAssumption?.currency ? "assumed_default" as const :
+    record.interpretation.currency ? "source" as const :
+    record.currencyAssumption?.currency ? "assumed_default" as const :
+    record.acceptedDefaults?.currency ? "assumed_default" as const : undefined;
   return {
     ...(record.userOverrides.amountMinor !== undefined
       ? { amountMinor: record.userOverrides.amountMinor }
       : record.interpretation.amountMinor !== undefined && { amountMinor: record.interpretation.amountMinor }),
-    ...(record.userOverrides.currency ?? record.interpretation.currency
-      ? { currency: record.userOverrides.currency ?? record.interpretation.currency }
-      : {}),
+    ...(currency ? { currency } : {}),
     ...(record.userOverrides.merchantLabel !== undefined
       ? { merchantText: record.userOverrides.merchantLabel }
       : record.interpretation.merchantText && { merchantText: record.interpretation.merchantText }),
@@ -276,24 +326,28 @@ export function effectiveValues(record: TransactionLifecycle): EffectiveTransact
       ? { occurredAt: record.userOverrides.occurredAt ?? record.interpretation.occurredAt }
       : {}),
     eventType: record.userOverrides.eventType ?? record.interpretation.eventType,
+    ...(currencyBasis ? { currencyBasis } : {}),
+    ...(record.userOverrides.occurredAt !== undefined
+      ? { occurredAtBasis: "user_corrected_date" as const }
+      : record.interpretation.occurredAt ? { occurredAtBasis: "source_event_date" as const } : {}),
   };
 }
 
 export function confirm(record: TransactionLifecycle): TransactionLifecycle {
+  if (!canConfirm(record)) return record;
   return { ...record, confirmationState: "confirmed" };
 }
 
 export function confirmAll(records: TransactionLifecycle[]): TransactionLifecycle[] {
-  return records.map((record) =>
-    canConfirm(record) ? confirm(record) : record,
-  );
+  return records.map((record) => canConfirm(record) ? confirm(record) : record);
 }
 
-/** Unknown type and missing currency require a human decision before confirmation. */
+/** Confirmation needs an explicit money direction and usable currency. */
 export function canConfirm(record: TransactionLifecycle): boolean {
   const values = effectiveValues(record);
   return record.disposition === "active" && record.deletionState === "active" &&
-    values.amountMinor !== undefined && !!values.currency && values.eventType !== "unknown";
+    values.amountMinor !== undefined && !!values.currency && values.eventType !== "unknown" && !record.evidenceConflict &&
+    (!sourceIdentityConflict(record) || !!record.userOverrides.walletLabel);
 }
 
 export function setDisposition(record: TransactionLifecycle, disposition: CandidateDisposition): TransactionLifecycle {
@@ -331,8 +385,8 @@ function contributesToMetrics(record: TransactionLifecycle): boolean {
     !record.relationships.some(({ kind }) => kind === "duplicate_of");
 }
 
-function eventImpact(eventType: TransactionKind): { inflow: boolean; outflow: boolean } {
-  if (eventType === "purchase") return { inflow: false, outflow: true };
+export function eventImpact(eventType: TransactionKind | "generic_expense"): { inflow: boolean; outflow: boolean } {
+  if (eventType === "purchase" || eventType === "generic_expense") return { inflow: false, outflow: true };
   if (eventType === "income" || eventType === "refund" || eventType === "reversal") {
     return { inflow: true, outflow: false };
   }
@@ -355,8 +409,7 @@ function emptyCurrencyMetrics(currency: string): CurrencyDetectedMetrics {
 
 /**
  * Calculates detected activity only. It deliberately never returns a balance
- * or combines currencies. Unknown types get only the approved, separately
- * labelled provisional-outflow assumption.
+ * or combines currencies. Unknown types have no signed money effect.
  */
 export function calculateDetectedMetrics(records: TransactionLifecycle[]): DetectedMetrics {
   const metricsByCurrency = new Map<string, CurrencyDetectedMetrics>();
@@ -387,7 +440,7 @@ export function calculateDetectedMetrics(records: TransactionLifecycle[]): Detec
       current.detectedOutflowMinor += values.amountMinor;
       eventTotals.outflowMinor += values.amountMinor;
     }
-    if (values.eventType === "unknown") current.provisionalOutflowMinor += values.amountMinor;
+
     current.detectedNetFlowMinor = current.detectedInflowMinor - current.detectedOutflowMinor;
     current.byEventType[values.eventType] = eventTotals;
     if (record.confirmationState === "needs_confirmation") {
@@ -405,11 +458,12 @@ export function calculateDetectedMetrics(records: TransactionLifecycle[]): Detec
   };
 }
 
-export type DateBasis = "source_event_date" | "source_message_date" | "first_seen";
+export type DateBasis = "user_corrected_date" | "source_event_date" | "source_message_date" | "first_seen";
 
 /** Date-only source values stay date-only; UTC is only this fictional demo's grouping convention. */
 export function groupingDate(record: TransactionLifecycle): { value?: string; basis: DateBasis } {
   const values = effectiveValues(record);
+  if (record.userOverrides.occurredAt !== undefined) return { value: record.userOverrides.occurredAt, basis: "user_corrected_date" };
   if (values.occurredAt) return { value: values.occurredAt, basis: "source_event_date" };
   const capturedAt = record.sourceCandidates.find((item) => item.capturedAt)?.capturedAt;
   if (capturedAt) return { value: capturedAt, basis: "source_message_date" };
@@ -442,6 +496,8 @@ export class TransactionLifecycleStore {
     this.recordsById.set(record.id, record);
     return record;
   }
+
+  constructor(records: TransactionLifecycle[] = []) { records.forEach((record) => this.save(record)); }
 
   /** The current unique economic events, useful for the fixture-only path. */
   records(): TransactionLifecycle[] {
@@ -480,15 +536,30 @@ export class TransactionLifecycleStore {
         : record);
     }
 
-    const interpretation = interpretationAfterEvidence(existing.interpretation, incomingInterpretation);
+    // Re-seeing an already stored capture is provenance-only. It must never roll
+    // a later source reading or a person's review decision back in time.
+    const alreadySeenCapture = existing.sourceCandidates.some(item => item.captureId === candidate.captureId);
+    const interpretation = alreadySeenCapture ? existing.interpretation : interpretationAfterEvidence(existing.interpretation, incomingInterpretation);
     const changed = materialFingerprint(existing.interpretation) !== materialFingerprint(interpretation);
+    const candidates = appendSourceCandidate(existing, candidate);
+    const provenance = appendProvenance(existing, capture);
+    const identityConflict = sourceIdentityConflict({ ...existing, sourceCandidates: candidates, sourceProvenance: provenance });
+    const newIdentityConflict = identityConflict && !sourceIdentityConflict(existing);
     const updated: TransactionLifecycle = {
       ...existing,
-      sourceCandidates: appendSourceCandidate(existing, candidate),
-      sourceProvenance: appendProvenance(existing, capture),
+      sourceCandidates: candidates,
+      sourceProvenance: provenance,
       interpretation: changed ? interpretation : existing.interpretation,
-      ...(changed && existing.confirmationState === "confirmed" && { confirmationState: "needs_confirmation" as const }),
+      ...((changed || newIdentityConflict) && existing.confirmationState === "confirmed" && { confirmationState: "needs_confirmation" as const }),
       ...(changed && { attentionReasons: attentionReasons(interpretation) }),
+      ...(changed && existing.confirmationState === "confirmed" && (existing.acceptedDefaults || existing.currencyAssumption) && {
+        evidenceConflict: [
+          existing.currencyAssumption?.currency && interpretation.currency && existing.currencyAssumption.currency !== interpretation.currency ? `Assumed default currency ${existing.currencyAssumption.currency}; new source currency ${interpretation.currency}` : "",
+          existing.acceptedDefaults?.currency && interpretation.currency && existing.acceptedDefaults.currency !== interpretation.currency ? `Accepted default currency ${existing.acceptedDefaults.currency}; new source currency ${interpretation.currency}` : "",
+          existing.acceptedDefaults?.eventType && interpretation.eventType !== "unknown" && interpretation.eventType !== "purchase" ? `Accepted generic expense; new source type ${interpretation.eventType}` : "",
+        ].filter(Boolean).join("; ") || undefined,
+      }),
+      ...(changed && { actionHistory: [...(existing.actionHistory ?? []), { id: `${existing.id}:evidence:${candidate.captureId}`, at: candidate.processedAt, kind: "evidence_update" as const, detail: `New source reading: amount ${existing.interpretation.amountMinor ?? "missing"} → ${interpretation.amountMinor ?? "missing"}; currency ${existing.interpretation.currency ?? "missing"} → ${interpretation.currency ?? "missing"}; type ${existing.interpretation.eventType} → ${interpretation.eventType}. Confirmation requires review.` }] }),
     };
     return this.save(updated);
   }

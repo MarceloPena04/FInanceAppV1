@@ -47,10 +47,14 @@ function assertEvidence(value: unknown, path: string): void {
         evidence.field === "currency" ||
         evidence.field === "occurredAt" ||
         evidence.field === "merchantText" ||
-        evidence.field === "kind",
+        evidence.field === "kind" ||
+        evidence.field === "institution" ||
+        evidence.field === "account" ||
+        evidence.field === "card",
       `${path}[${index}].field is invalid`,
     );
     assert(typeof evidence.excerpt === "string" && evidence.excerpt.length > 0, `${path}[${index}].excerpt is required`);
+    assert(evidence.origin === undefined || evidence.origin === "text" || evidence.origin === "metadata", `${path}[${index}].origin is invalid`);
   }
 }
 
@@ -67,12 +71,15 @@ function assertCapture(value: unknown, path: string): asserts value is Canonical
     `${path}.capturedAt must be an ISO timestamp when present`,
   );
   assert(typeof value.rawText === "string" && value.rawText.length > 0, `${path}.rawText is required`);
+  assert(!/\b\d{12,19}\b/.test(value.rawText), `${path}.rawText must not contain a full card number`);
   assert(isRecord(value.metadata), `${path}.metadata must be an object`);
+  for (const key of ["institutionName", "accountReference", "paymentInstrumentReference"]) assertOptionalString(value.metadata[key], `${path}.metadata.${key}`);
   for (const [key, metadataValue] of Object.entries(value.metadata)) {
     assert(
       metadataValue === null || ["string", "number", "boolean"].includes(typeof metadataValue),
       `${path}.metadata.${key} must be a primitive value`,
     );
+    if (key === "paymentInstrumentReference" && typeof metadataValue === "string") assert(!/\b\d{12,19}\b/.test(metadataValue), `${path}.metadata.${key} must not contain a full card number`);
   }
 }
 
@@ -92,6 +99,10 @@ function assertExpected(value: unknown, path: string): void {
   assert(facts.currency === undefined || (typeof facts.currency === "string" && /^[A-Z]{3}$/.test(facts.currency)), `${path}.candidate.sourceFacts.currency must be a three-letter uppercase code when present`);
   assertOptionalString(facts.occurredAt, `${path}.candidate.sourceFacts.occurredAt`);
   assertOptionalString(facts.merchantText, `${path}.candidate.sourceFacts.merchantText`);
+  if (facts.fundingSource !== undefined) {
+    assert(isRecord(facts.fundingSource), `${path}.candidate.sourceFacts.fundingSource must be an object`);
+    for (const key of ["institution", "account", "card"]) assertOptionalString(facts.fundingSource[key], `${path}.candidate.sourceFacts.fundingSource.${key}`);
+  }
   assert(facts.kind === undefined || (typeof facts.kind === "string" && transactionKinds.has(facts.kind as TransactionKind)), `${path}.candidate.sourceFacts.kind is invalid`);
   assertEvidence(facts.evidence, `${path}.candidate.sourceFacts.evidence`);
   assert(isRecord(value.candidate.inferred), `${path}.candidate.inferred is required`);

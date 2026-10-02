@@ -40,3 +40,11 @@ Only after the fixture path works: decide whether an authorized manual Gmail syn
 - **Next action:** Choose and implement the smallest durable local/test storage boundary, then attach the existing review/correction rules to one visibly non-demo path.
 - **Blocked/open:** No learned time window, fuzzy matching, source-specific behavior, or real-source data has been tested. Pending/final records without a shared reference remain suggestions only.
 - **What this reveals:** The product can protect totals from the known fixture cases without claiming complete finances, but it still needs persistence and a review UI before a person can test the full experience.
+
+## 2026-09-30 connected fictional validation
+
+The source-to-total inspection path, scenario ledger, and domain checks now exist. Machine verification and browser interaction are evidence for the fictional path; the human time/comprehension comparison remains open. Sprint 1 stays open until an observed person completes the bounded exercise in `docs/human-exercise.md` and the result is recorded.
+
+## Final correction status
+
+The review queue now separates ready records from attention decisions, shows pending monetary value for This week and All-time history, and shows a resolved duplicate as one normal activity card with linked evidence. This week is included in All-time history. The yellow review card and expanded panel disappear once no candidates remain pending. The participant's short final acceptance answer and manual-versus-app effort observation are still required before this Sprint can be closed. Code evidence: `src/domain/review-queue.ts`, `src/app/page.tsx`, and `tests/domain/review-queue.test.mjs`.

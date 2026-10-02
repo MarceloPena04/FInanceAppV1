@@ -58,7 +58,25 @@ test("an amount without currency stays detected without a default currency", () 
   assert.equal(candidate?.status, "detected");
   assert.equal(candidate?.sourceFacts.amountMinor, 1750);
   assert.equal(candidate?.sourceFacts.currency, undefined);
+  assert.equal(candidate?.sourceFacts.kind, "purchase", "the bounded payment-at-merchant pattern is a source purchase");
+  assert.equal(candidate?.sourceFacts.merchantText, "Example Cafe");
   assert.ok(candidate?.sourceFacts.evidence.some((evidence) => evidence.field === "amount" && evidence.excerpt === "17.50"));
+});
+
+test("payment completed remains unclassified without the bounded merchant wording", () => {
+  const candidate = parser.parse({
+    captureId: "bounded-payment-negative",
+    sourceType: "fixture",
+    capturedAt: "2026-09-04T10:00:00Z",
+    rawText: "Payment completed: 17.50.",
+    metadata: { externalId: "bounded-payment-negative" },
+  });
+
+  assert.equal(candidate?.status, "detected");
+  assert.equal(candidate?.sourceFacts.amountMinor, 1750);
+  assert.equal(candidate?.sourceFacts.currency, undefined);
+  assert.equal(candidate?.sourceFacts.kind, "unknown");
+  assert.equal(candidate?.sourceFacts.merchantText, undefined);
 });
 
 test("a missing captured-at value is preserved as missing while processing time remains traceable", () => {

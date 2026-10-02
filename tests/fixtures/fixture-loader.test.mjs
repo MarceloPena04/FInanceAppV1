@@ -12,7 +12,7 @@ import {
 test("the committed capture fixture document validates", () => {
   const document = loadDefaultFixtureDocument();
   assert.equal(document.schemaVersion, 1);
-  assert.equal(document.records.length, 38);
+  assert.equal(document.records.length, 40);
 });
 
 test("fixture identities are unique while exact duplicates preserve a shared source external ID", () => {
@@ -45,4 +45,11 @@ test("schema validation rejects parsed transaction fields inside a capture", () 
   const invalid = JSON.parse(readFileSync(filename, "utf8"));
   invalid.records[0].capture.amountMinor = 1299;
   assert.throws(() => loadFixtureDocument(JSON.stringify(invalid)), /does not belong in a capture/);
+});
+
+test("fixtures reject a full card number", () => {
+  const document = loadDefaultFixtureDocument();
+  const invalid = structuredClone(document);
+  invalid.records[0].capture.metadata.paymentInstrumentReference = "4111111111111111";
+  assert.throws(() => loadFixtureDocument(JSON.stringify(invalid)), /full card number/);
 });

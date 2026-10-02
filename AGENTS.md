@@ -43,6 +43,21 @@ Use plain beginner language. Each update must say:
 If Notion cannot be reached, say that clearly in the final handoff and do not
 claim that the record was updated.
 
+## Record work without being reminded
+
+After every meaningful code change, product or business decision, important
+finding, or blocker, update the Sprint 1 Notion hub and the relevant connected
+state page. Re-fetch the changed pages to verify the record. Do this as part of
+the task without waiting for the owner to ask.
+
+When that work changes repository code or documents, save the verified change
+in Git and publish it to the configured GitHub repository on an appropriate
+branch. Verify the remote and branch before publishing, and verify the remote
+result afterward. Use a pull request when a shared branch should not be updated
+directly. A Notion-only update needs no empty Git commit. If publishing is
+blocked, keep the local work safe, record the blocker in Notion, and state
+clearly what is and is not on GitHub.
+
 ## Explain as a mentor
 
 Assume the reader is new to software. Use short, everyday words. Define a
