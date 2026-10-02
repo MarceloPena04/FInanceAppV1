@@ -3,7 +3,7 @@ import test from 'node:test';
 import { loadDefaultFixtureDocument } from '../../src/fixtures/loader.ts';
 import { EMPTY_SCENARIO, duplicateDecision, processCapture, confirmRecord, changeRecord, weeks } from '../../src/domain/fictional-scenario.ts';
 import { calculateReportingMetrics } from '../../src/domain/reporting-currency.ts';
-import { confirmReady, linkedEvidence, newestFirst, reviewQueue, visibleActivity } from '../../src/domain/review-queue.ts';
+import { confirmReady, linkedEvidence, neutralReviewReady, newestFirst, reviewQueue, visibleActivity } from '../../src/domain/review-queue.ts';
 
 const fixtures = loadDefaultFixtureDocument().records;
 const add = (state, id) => { const fixture = fixtures.find(item => item.id === id); assert.ok(fixture); return processCapture(state, id, fixture.capture); };
@@ -39,6 +39,23 @@ test('ready bulk actions leave attention untouched and write one action per conf
     assert.equal(after.actionHistory.at(-1).kind, 'confirmed');
   }
   for (const attention of queue.needsAttention) assert.equal(all.records.find(item => item.id === attention.id).confirmationState, 'needs_confirmation');
+});
+
+test('neutral activity requires an individual decision and can be confirmed without changing flow', () => {
+  const original = make(['transfer-eur']);
+  const transfer = stateFor(original, 'transfer-eur');
+  assert.equal(neutralReviewReady(transfer, original.records), true);
+  assert.equal(reviewQueue(original, 'EUR', '2026-09-14').ready.length, 0);
+  const before = calculateReportingMetrics(original.records, 'EUR').netFlowMinor;
+  const confirmed = confirmRecord(original, transfer.id);
+  assert.equal(stateFor(confirmed, 'transfer-eur').confirmationState, 'confirmed');
+  assert.equal(calculateReportingMetrics(confirmed.records, 'EUR').netFlowMinor, before);
+
+  const missingCurrency = { ...transfer, interpretation: { ...transfer.interpretation, currency: undefined }, currencyAssumption: undefined };
+  assert.equal(neutralReviewReady(missingCurrency, [missingCurrency]), false);
+  const corrected = changeRecord(original, transfer.id, 'edited', 'Person chose expense', item => ({ ...item, userOverrides: { ...item.userOverrides, eventType: 'generic_expense' } }));
+  assert.equal(neutralReviewReady(corrected.records[0], corrected.records), false);
+  assert.ok(calculateReportingMetrics(corrected.records, 'EUR').netFlowMinor < before);
 });
 
 test('review counts and signed effects reconcile by period', () => {

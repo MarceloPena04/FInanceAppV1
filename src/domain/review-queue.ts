@@ -1,4 +1,4 @@
-import { effectiveValues, groupingDate, sourceIdentityConflict, type TransactionLifecycle } from "./transaction-lifecycle.ts";
+import { canConfirm, effectiveValues, groupingDate, sourceIdentityConflict, type TransactionLifecycle } from "./transaction-lifecycle.ts";
 import { calculateReportingMetrics, reportingEventEffect, type ReportingCurrency } from "./reporting-currency.ts";
 import { confirmRecord, type ScenarioState } from "./fictional-scenario.ts";
 
@@ -13,6 +13,14 @@ export function attentionReasons(record: TransactionLifecycle, records: Transact
   if (effectiveValues(record).amountMinor === undefined) reasons.push("Amount missing");
   if (["transfer", "withdrawal"].includes(effectiveValues(record).eventType)) reasons.push("Neutral money movement");
   return reasons;
+}
+
+/** Neutral activity still needs a person's decision, but its type alone must not block that decision. */
+export function neutralReviewReady(record: TransactionLifecycle, records: TransactionLifecycle[]): boolean {
+  return record.confirmationState === "needs_confirmation" &&
+    ["transfer", "withdrawal"].includes(effectiveValues(record).eventType) &&
+    canConfirm(record) &&
+    attentionReasons(record, records).every(reason => reason === "Neutral money movement");
 }
 
 export function newestFirst(records: TransactionLifecycle[]): TransactionLifecycle[] {
