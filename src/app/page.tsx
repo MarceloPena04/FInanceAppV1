@@ -1,233 +1,273 @@
 "use client";
+/* The dialog editor reports unsaved form state to its owning native dialog. */
+/* eslint-disable react-hooks/set-state-in-effect */
 
-import { useState, type FormEvent } from "react";
-import {
-  ArrowUpRight,
-  Bell,
-  CalendarDays,
-  ChevronDown,
-  CircleHelp,
-  CreditCard,
-  Filter,
-  LayoutDashboard,
-  Menu,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  Tags,
-  Wallet,
-  X,
-} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Check, RotateCcw, X } from "lucide-react";
+import { ActivityControls, SourceSelector } from "./activity-controls";
+import { filterActivityRecords, migrateWalletEvidence, sourceScopeOptions, sourceScopedRecords, walletForRecord, walletOptions, type ActivityTypeFilter } from "../domain/wallet-source";
+import fixtures from "../fixtures/data/capture-fixtures.json";
+import { createTransactionParser } from "../parser/transaction-parser";
+import type { CanonicalCapture } from "../domain/canonical-capture";
+import type { TransactionKind } from "../domain/transaction-candidate";
+import { canConfirm, clearUserOverrides, effectiveValues, groupingDate, sourceIdentityConflict, type TransactionLifecycle } from "../domain/transaction-lifecycle";
+import { calculateReportingMetrics, convertMinor, reportingEventEffect, REPORTING_RATE_VERSION, SUPPORTED_REPORTING_CURRENCIES, type ReportingCurrency } from "../domain/reporting-currency";
+import { EMPTY_SCENARIO, changeRecord, confirmRecord, duplicateDecision, processCapture, undoConfirmation, weeks, type ScenarioState } from "../domain/fictional-scenario";
+import { attentionReasons, confirmReady, linkedEvidence, neutralReviewReady, newestFirst, reviewQueue, visibleActivity } from "../domain/review-queue";
+import { activityDayLabel, activityWeekLabel, groupActivityByWeekAndDay } from "../domain/activity-grouping";
 
-const navItems = [
-  { label: "Overview", icon: LayoutDashboard },
-  { label: "Transactions", icon: CreditCard },
-  { label: "Accounts", icon: Wallet },
-  { label: "Categories", icon: Tags },
-];
+const KEY = "finance-fictional-scenario-v3";
+const focusedIds = ["missing-merchant", "payment-without-currency", "exact-cross-source-email", "exact-cross-source-push", "sparse-cross-source-email", "sparse-cross-source-push", "duplicate-source-original", "duplicate-source-replay", "referenced-pending-usd", "referenced-finalized-usd", "unlinked-pending-usd", "unlinked-finalized-usd", "refund-eur", "transfer-eur", "missing-amount", "unsupported-bank-service-notice"];
+const fixtureRecords = fixtures.records as Array<{ id: string; capture: CanonicalCapture }>;
+const labels: Record<string, string> = { purchase: "Purchase", income: "Income", refund: "Refund", reversal: "Reversal", transfer: "Transfer", withdrawal: "Withdrawal", unknown: "Type not supplied", generic_expense: "Expense", source_event_date: "Date from transaction text", source_message_date: "Date from notification", first_seen: "First seen by the demo", user_corrected_date: "Date corrected by you" };
 
-const transactions = [
-  { name: "Whole Foods Market", category: "Groceries", date: "Today, 9:42 AM", amount: "-$84.32", color: "bg-[#f8ded8]", icon: "WF" },
-  { name: "Spotify", category: "Entertainment", date: "Yesterday", amount: "-$10.99", color: "bg-[#d9e9e7]", icon: "S" },
-  { name: "Blue Bottle Coffee", category: "Dining", date: "Yesterday", amount: "-$6.50", color: "bg-[#dce5f2]", icon: "BB" },
-  { name: "Acme, Inc.", category: "Income", date: "May 24", amount: "+$3,200.00", color: "bg-[#d5e8df]", icon: "A" },
-];
-
-const accountSources = [
-  { id: "all", name: "All sources", balance: "$24,680.42", change: "4.8%", context: "Across 3 connected accounts" },
-  { id: "checking", name: "Everyday checking", balance: "$12,840.16", change: "3.2%", context: "Chase ···· 4821" },
-  { id: "savings", name: "High-yield savings", balance: "$10,240.26", change: "6.1%", context: "Ally ···· 1170" },
-  { id: "card", name: "Rewards card", balance: "$1,600.00", change: "1.4%", context: "Amex ···· 9034" },
-] as const;
-
-const cashFlowSummaries = [
-  {
-    id: "weekly",
-    title: "Weekly summary",
-    description: "Daily cash flow for this week",
-    total: "+$486.28",
-    detail: "Net cash flow",
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    income: [46, 72, 38, 58, 92, 28, 42],
-    spending: [32, 48, 26, 39, 54, 22, 31],
-  },
-  {
-    id: "monthly",
-    title: "Monthly summary",
-    description: "Weekly cash flow for May",
-    total: "+$3,357.33",
-    detail: "Net cash flow",
-    labels: ["May 1", "May 8", "May 15", "May 22", "May 28"],
-    income: [74, 52, 88, 61, 96],
-    spending: [45, 68, 51, 43, 57],
-  },
-] as const;
-
-function CashFlowChart({ summary }: { summary: (typeof cashFlowSummaries)[number] }) {
-  return (
-    <div>
-      <div className="mb-3 flex items-center gap-5 text-[11px] text-[#657286]">
-        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#18a999]" />Income</span>
-        <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#e27a68]" />Spending</span>
-      </div>
-      <div className="flex h-[168px] items-end gap-2 border-b border-[#e3e8ee] pt-4 sm:gap-3">
-        {summary.labels.map((label, index) => (
-          <div key={label} className="group flex h-full min-w-0 flex-1 items-end justify-center gap-1.5" aria-label={`${label}: income ${summary.income[index]}%, spending ${summary.spending[index]}%`}>
-            <div className="w-2.5 rounded-t-[3px] bg-[#a9ddd5] transition-colors group-hover:bg-[#18a999] sm:w-3" style={{ height: `${summary.income[index]}%` }} />
-            <div className="w-2.5 rounded-t-[3px] bg-[#f3c0b5] transition-colors group-hover:bg-[#e27a68] sm:w-3" style={{ height: `${summary.spending[index]}%` }} />
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex justify-between text-[10px] text-[#8793a3]">
-        {summary.labels.map((label) => <span key={label}>{label}</span>)}
-      </div>
-    </div>
-  );
-}
+function seededScenario(): ScenarioState { return focusedIds.reduce<ScenarioState>((state, id) => { const item = fixtureRecords.find((entry) => entry.id === id); return item ? processCapture(state, item.id, item.capture) : state; }, { ...EMPTY_SCENARIO, defaultCurrency: "EUR" }); }
+function loadScenario(): ScenarioState { try { const parsed = JSON.parse(localStorage.getItem(KEY) ?? "") as ScenarioState; if (parsed.version === 1 && Array.isArray(parsed.records) && Array.isArray(parsed.traces)) { const parser = createTransactionParser(); return { ...parsed, records: parsed.records.map((original) => { let record = original; const cafe = record.sourceCandidates.find((item) => item.captureId === "capture-028"); if (cafe && record.interpretation.eventType === "unknown") { const capture = fixtureRecords.find((item) => item.id === "payment-without-currency")?.capture, fresh = capture && parser.parse(capture); if (fresh?.sourceFacts.kind === "purchase") record = { ...record, sourceCandidates: record.sourceCandidates.map((item) => item.captureId === cafe.captureId ? { ...item, sourceFacts: fresh.sourceFacts } : item), interpretation: { ...record.interpretation, eventType: "purchase", merchantText: fresh.sourceFacts.merchantText ?? record.interpretation.merchantText } }; } if (!record.interpretation.currency && !record.currencyAssumption && parsed.defaultCurrency) record = { ...record, currencyAssumption: { currency: parsed.defaultCurrency, basis: "chosen_app_default" } }; return record.interpretation.eventType === "unknown" && !record.userOverrides.eventType ? { ...record, confirmationState: "needs_confirmation", acceptedDefaults: record.acceptedDefaults ? { ...record.acceptedDefaults, eventType: undefined } : undefined } : record; }) }; } } catch {} return seededScenario(); }
+function money(value: number, currency: ReportingCurrency) { return new Intl.NumberFormat("en", { style: "currency", currency }).format(value / (currency === "JPY" ? 1 : 100)); }
+function humanDate(record: TransactionLifecycle) { const grouped = groupingDate(record), value = grouped.value; if (!value) return "Date unavailable"; const date = new Date(value.length === 10 ? `${value}T00:00:00Z` : value); if (!Number.isFinite(date.getTime())) return "Date unavailable"; const day = new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date); const shown = grouped.basis === "source_event_date" && value.length > 10 ? `${day}, ${new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }).format(date)} UTC` : day; return grouped.basis === "user_corrected_date" ? `${shown} · Date corrected by you` : shown; }
+function counterpart(record: TransactionLifecycle, records: TransactionLifecycle[]) { const own = record.relationships.find((rel) => rel.kind === "possible_duplicate_of"); return own ? records.find((item) => item.id === own.targetId) : records.find((item) => item.relationships.some((rel) => rel.kind === "possible_duplicate_of" && rel.targetId === record.id)); }
+function effectLabel(record: TransactionLifecycle, currency: ReportingCurrency) { const effect = reportingEventEffect(record, currency), value = effectiveValues(record); if (record.disposition === "excluded") return "Excluded · zero effect"; if (effect.inflowMinor) return `+${money(effect.inflowMinor, currency)}`; if (effect.outflowMinor) return `−${money(effect.outflowMinor, currency)}`; if (effect.unclassifiedAmountMinor) return `${money(effect.unclassifiedAmountMinor, currency)} unclassified`; if (value.amountMinor !== undefined) return value.currency && SUPPORTED_REPORTING_CURRENCIES.includes(value.currency as ReportingCurrency) ? `${money(value.amountMinor, value.currency as ReportingCurrency)} · zero effect` : "Currency missing · zero effect"; return "Amount missing · zero effect"; }
+function duplicateOwnerId(record: TransactionLifecycle, pair: TransactionLifecycle | undefined) { return record.relationships.some((rel) => rel.kind === "possible_duplicate_of") ? record.id : pair?.relationships.some((rel) => rel.kind === "possible_duplicate_of") ? pair.id : undefined; }
 
 export default function Home() {
-  const [accountId, setAccountId] = useState<(typeof accountSources)[number]["id"]>("all");
-  const [summaryId, setSummaryId] = useState<(typeof cashFlowSummaries)[number]["id"]>("weekly");
-  const [activeNav, setActiveNav] = useState("Overview");
-  const [transactionItems, setTransactionItems] = useState(transactions);
-  const [transactionFilter, setTransactionFilter] = useState<"all" | "income" | "spending">("all");
-  const [showPending, setShowPending] = useState(true);
-  const [showAddTransaction, setShowAddTransaction] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showMonthMenu, setShowMonthMenu] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [newTransactionName, setNewTransactionName] = useState("");
-  const [newTransactionAmount, setNewTransactionAmount] = useState("");
-  const [newTransactionCategory, setNewTransactionCategory] = useState("Other");
-  const [search, setSearch] = useState("");
-  const [mobileNav, setMobileNav] = useState(false);
-
-  const filteredTransactions = transactionItems.filter((transaction) =>
-    transaction.name.toLowerCase().includes(search.toLowerCase()) &&
-    (transactionFilter === "all" || (transactionFilter === "income" ? transaction.amount.startsWith("+") : !transaction.amount.startsWith("+"))),
-  );
-  const selectedAccount = accountSources.find((account) => account.id === accountId) ?? accountSources[0];
-  const selectedSummary = cashFlowSummaries.find((summary) => summary.id === summaryId) ?? cashFlowSummaries[0];
-
-  const showFeedback = (message: string) => {
-    setFeedback(message);
+  const [loaded, setLoaded] = useState(false), [state, setState] = useState<ScenarioState>(seededScenario), [week, setWeek] = useState(""), [search, setSearch] = useState(""), [typeFilter, setTypeFilter] = useState<ActivityTypeFilter>("all"), [sourceScope, setSourceScope] = useState("all"), [reviewOpen, setReviewOpen] = useState(false), [selectedId, setSelectedId] = useState<string | undefined>(), [selectedBulk, setSelectedBulk] = useState<string[]>([]), [stickyVisible, setStickyVisible] = useState(false), [sheetClosing, setSheetClosing] = useState(false), [announcement, setAnnouncement] = useState("");
+  const dialogRef = useRef<HTMLDialogElement>(null), triggerRef = useRef<HTMLElement | null>(null), reviewButtonRef = useRef<HTMLButtonElement>(null), activityToolbarRef = useRef<HTMLDivElement>(null), activityRef = useRef<HTMLElement>(null), closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { const frame = requestAnimationFrame(() => { const restored = loadScenario(); setState({ ...restored, records: migrateWalletEvidence(restored.records, fixtureRecords.map(item => item.capture)) }); setLoaded(true); }); return () => cancelAnimationFrame(frame); }, []);
+  useEffect(() => { if (loaded) localStorage.setItem(KEY, JSON.stringify(state)); }, [state, loaded]);
+  useEffect(() => { const dialog = dialogRef.current; if (!dialog) return; if (selectedId && !dialog.open) { dialog.showModal(); document.body.style.overflow = "hidden"; } if (!selectedId && dialog.open) dialog.close(); return () => { document.body.style.overflow = ""; }; }, [selectedId]);
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
+  useEffect(() => { const updateSticky = () => { const toolbar = activityToolbarRef.current, activitySection = activityRef.current; if (!toolbar || !activitySection) return; const passedToolbar = toolbar.getBoundingClientRect().bottom <= 0, activityBounds = activitySection.getBoundingClientRect(); setStickyVisible(passedToolbar && activityBounds.bottom > 0 && !selectedId); }; updateSticky(); window.addEventListener("scroll", updateSticky, { passive: true }); window.addEventListener("resize", updateSticky); return () => { window.removeEventListener("scroll", updateSticky); window.removeEventListener("resize", updateSticky); }; }, [selectedId, state.records, search, typeFilter, sourceScope]);
+  const currency = (state.defaultCurrency ?? "EUR") as ReportingCurrency, availableWeeks = weeks(state.records), selectedWeek = week || availableWeeks.at(-1) || "2026-09-28";
+  const sourceOptions = sourceScopeOptions(visibleActivity(state.records)), activeScope = sourceOptions.some(option => option.key === sourceScope) ? sourceScope : "all", sourceLabel = sourceOptions.find(option => option.key === activeScope)?.label ?? "All sources";
+  const scoped = sourceScopedRecords(state.records, activeScope), scopedIds = new Set(scoped.map(record => record.id));
+  const allTime = calculateReportingMetrics(scoped, currency), weekly = calculateReportingMetrics(scoped, currency, selectedWeek), queue = reviewQueue(state, currency, selectedWeek, scopedIds), sorted = newestFirst(visibleActivity(scoped)), activity = filterActivityRecords(sorted, search, typeFilter, "all"), activityGroups = groupActivityByWeekAndDay(activity), selected = state.records.find((record) => record.id === selectedId), ready = queue.ready, selectedReady = selectedBulk.filter((id) => ready.some((record) => record.id === id));
+  const openRecord = (id: string, trigger: HTMLElement) => { if (sheetClosing) return; triggerRef.current = trigger; setSelectedId(id); };
+  const closeDialog = (message = "", focusId = selectedId) => {
+    if (sheetClosing) return;
+    if (message) setAnnouncement(message);
+    setSheetClosing(true);
+    const finish = () => {
+      closeTimerRef.current = null;
+      if (dialogRef.current?.open) dialogRef.current.close();
+      setSelectedId(undefined);
+      setSheetClosing(false);
+      requestAnimationFrame(() => {
+        const items = [...document.querySelectorAll<HTMLElement>("[data-record-id]")];
+        const preferred = items.find(item => item.dataset.recordId === focusId);
+        const next = preferred ?? (triggerRef.current?.isConnected ? triggerRef.current : undefined) ?? document.querySelector<HTMLElement>(".needs-review-panel [data-record-id]") ?? document.getElementById("activity-heading");
+        next?.focus();
+      });
+    };
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) finish();
+    else closeTimerRef.current = setTimeout(finish, 180);
   };
-
-  const handleAddTransaction = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const amount = Number(newTransactionAmount);
-    if (!newTransactionName.trim() || !amount || amount < 0) return;
-
-    const isIncome = newTransactionCategory === "Income";
-    setTransactionItems((current) => [{
-      name: newTransactionName.trim(),
-      category: newTransactionCategory,
-      date: "Today",
-      amount: `${isIncome ? "+" : "-"}$${amount.toFixed(2)}`,
-      color: isIncome ? "bg-[#d5e8df]" : "bg-[#d9e9e7]",
-      icon: newTransactionName.trim().slice(0, 2).toUpperCase(),
-    }, ...current]);
-    setNewTransactionName("");
-    setNewTransactionAmount("");
-    setNewTransactionCategory("Other");
-    setShowAddTransaction(false);
-    showFeedback("Transaction added to this mock workspace.");
-  };
-
-  return (
-    <main className="min-h-screen bg-[#e4ecef] text-[#162235]">
-      <div className="mx-auto flex min-h-screen max-w-[1540px]">
-        <aside className={`${mobileNav ? "translate-x-0" : "-translate-x-full"} fixed inset-y-0 left-0 z-30 flex w-[260px] flex-col border-r border-[#dce3e9] bg-[#edf2f5] px-6 py-7 transition-transform lg:static lg:translate-x-0`}>
-          <div className="mb-14 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-[#b9e4df] text-[#075e59]"><Sparkles size={17} /></span>
-              <span className="text-[17px] font-bold tracking-[-0.04em]">pennywise</span>
-            </div>
-            <button className="text-[#66758a] lg:hidden" onClick={() => setMobileNav(false)} aria-label="Close navigation"><X size={20} /></button>
-          </div>
-          <div className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a1]">Workspace</div>
-          <nav className="space-y-1">
-            {navItems.map(({ label, icon: Icon }) => (
-              <button key={label} onClick={() => { setActiveNav(label); setMobileNav(false); showFeedback(`${label} view selected. Mock navigation only.`); }} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold transition ${activeNav === label ? "bg-[#d8eeeb] text-[#087f73]" : "text-[#536276] hover:bg-[#e3eaee]"}`}>
-                <Icon size={17} strokeWidth={1.8} />{label}
-              </button>
-            ))}
-          </nav>
-          <div className="mb-3 mt-10 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a1]">Manage</div>
-          <nav className="space-y-1">
-            <button onClick={() => showFeedback("Settings are ready for the Supabase connection.")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold text-[#536276] hover:bg-[#e3eaee]"><Settings size={17} strokeWidth={1.8} />Settings</button>
-            <button onClick={() => showFeedback("Help center opened in this mock workspace.")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-semibold text-[#536276] hover:bg-[#e3eaee]"><CircleHelp size={17} strokeWidth={1.8} />Help center</button>
-          </nav>
-          <div className="mt-auto rounded-2xl bg-[#dcebea] p-4">
-            <div className="mb-3 flex items-center justify-between"><ShieldCheck size={20} className="text-[#087f73]" /><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#28776f]">Private by default</span></div>
-            <p className="text-[12px] leading-5 text-[#4d716f]">Your financial data is encrypted and never sold.</p>
-            <button onClick={() => showFeedback("Privacy details are available in the connected-account setup.")} className="mt-3 text-[11px] font-bold text-[#087f73] underline underline-offset-2">Learn about privacy</button>
-          </div>
-          <div className="mt-6 flex items-center gap-3 border-t border-[#dce3e9] pt-5"><div className="grid h-8 w-8 place-items-center rounded-full bg-[#f2d5c9] text-[11px] font-bold text-[#864f43]">MC</div><div><p className="text-[12px] font-bold">Maya Chen</p><p className="text-[11px] text-[#8290a1]">Personal workspace</p></div><MoreHorizontal size={16} className="ml-auto text-[#8793a3]" /></div>
-        </aside>
-
-        <section className="min-w-0 flex-1 px-5 py-5 sm:px-8 lg:px-12 lg:py-8">
-          <header className="mb-8 flex items-center justify-between">
-            <button className="rounded-lg p-2 text-[#536276] hover:bg-[#f4f8f9] lg:hidden" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={21} /></button>
-            <div className="hidden lg:block"><p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8290a1]">Tuesday, May 28, 2024</p><h1 className="mt-1 text-[26px] font-semibold tracking-[-0.04em]">Good morning, Maya <span aria-hidden="true">✦</span></h1></div>
-            <div className="flex items-center gap-2 sm:gap-3"><div className="relative"><button onClick={() => setShowMonthMenu((current) => !current)} className="hidden h-9 items-center gap-2 rounded-lg border border-[#cbd9df] bg-[#f4f8f9] px-3 text-[12px] font-semibold text-[#536276] sm:flex"><CalendarDays size={15} />May 2024<ChevronDown size={14} /></button>{showMonthMenu && <div className="absolute right-0 top-11 z-20 w-36 rounded-xl border border-[#cbd9df] bg-[#f8fbfb] p-1 shadow-lg"><button onClick={() => { setShowMonthMenu(false); showFeedback("April 2024 selected for this mock dashboard."); }} className="w-full rounded-lg px-3 py-2 text-left text-[11px] font-semibold text-[#536276] hover:bg-[#e3eff0]">April 2024</button><button onClick={() => { setShowMonthMenu(false); showFeedback("May 2024 selected for this mock dashboard."); }} className="w-full rounded-lg bg-[#e3eff0] px-3 py-2 text-left text-[11px] font-semibold text-[#087f73]">May 2024</button><button onClick={() => { setShowMonthMenu(false); showFeedback("June 2024 selected for this mock dashboard."); }} className="w-full rounded-lg px-3 py-2 text-left text-[11px] font-semibold text-[#536276] hover:bg-[#e3eff0]">June 2024</button></div>}</div><div className="relative"><button onClick={() => setShowNotifications((current) => !current)} className="relative grid h-9 w-9 place-items-center rounded-lg border border-[#cbd9df] bg-[#f4f8f9] text-[#536276]" aria-label="Notifications"><Bell size={16} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#e27a68]" /></button>{showNotifications && <div className="absolute right-0 top-11 z-20 w-64 rounded-xl border border-[#cbd9df] bg-[#f8fbfb] p-4 shadow-lg"><p className="text-[12px] font-bold">Notifications</p><p className="mt-1 text-[11px] leading-5 text-[#718096]">3 transactions need review. Your accounts were synced just now.</p><button onClick={() => { setShowNotifications(false); setShowPending(true); showFeedback("Review reminder opened."); }} className="mt-3 text-[11px] font-bold text-[#087f73]">Review activity</button></div>}</div><button onClick={() => setShowAddTransaction(true)} className="grid h-9 w-9 place-items-center rounded-lg bg-[#162b46] text-white" aria-label="Add transaction"><Plus size={18} /></button></div>
-          </header>
-
-          <div className="mb-9 lg:hidden"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8290a1]">Tuesday, May 28, 2024</p><h1 className="mt-1 text-[24px] font-semibold tracking-[-0.04em]">Good morning, Maya <span aria-hidden="true">✦</span></h1></div>
-
-          <section className="mb-5 rounded-2xl border border-[#cbd9df] bg-[#f8fbfb] p-5 shadow-[0_12px_30px_rgba(47,78,91,0.06)] sm:p-7">
-            <div className="flex flex-col gap-6 border-b border-[#e7edf1] pb-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div>
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#8290a1]">Balance view</p>
-                    <div className="relative">
-                      <select value={accountId} onChange={(event) => setAccountId(event.target.value as (typeof accountSources)[number]["id"])} aria-label="Choose account balance" className="h-7 appearance-none rounded-md border border-[#d8e3e8] bg-[#f7fafb] py-1 pl-2 pr-7 text-[11px] font-bold text-[#087f73] outline-none focus:border-[#62b9b0]">
-                        {accountSources.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-                      </select>
-                      <ChevronDown size={13} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#087f73]" />
-                    </div>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1"><p className="text-[32px] font-semibold tracking-[-0.06em] text-[#162235] sm:text-[38px]">{selectedAccount.balance}</p><span className="flex items-center gap-1 text-[11px] font-bold text-[#087f73]"><ArrowUpRight size={13} />{selectedAccount.change} this month</span></div>
-                  <p className="mt-1 text-[11px] text-[#8793a3]">{selectedAccount.context}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:min-w-[300px]">
-                <div className="rounded-xl bg-[#f3f7f8] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8290a1]">Income</p><p className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-[#087f73]">$5,200</p><p className="mt-1 text-[10px] text-[#718096]">+12.5% this month</p></div>
-                <div className="rounded-xl bg-[#fff5f2] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#9b837e]">Spending</p><p className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-[#d56654]">$1,842</p><p className="mt-1 text-[10px] text-[#9b837e]">8.2% this month</p></div>
-              </div>
-            </div>
-            <div className="mt-6 min-w-0">
-              <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-                <div><h2 className="text-[15px] font-bold tracking-[-0.02em]">Cash flow</h2><p className="mt-1 text-[12px] text-[#718096]">{selectedSummary.description}</p></div>
-                <div className="flex items-center gap-4">
-                  <span className="hidden text-[17px] font-bold tracking-[-0.04em] text-[#087f73] sm:block">{selectedSummary.total} <span className="text-[10px] font-normal text-[#8793a3]">net</span></span>
-                  <div className="flex rounded-lg bg-[#edf2f5] p-1" role="group" aria-label="Cash flow period">
-                    {cashFlowSummaries.map((summary) => <button key={summary.id} onClick={() => setSummaryId(summary.id)} className={`rounded-md px-3 py-1.5 text-[11px] font-bold transition ${summary.id === summaryId ? "bg-[#f8fbfb] text-[#087f73] shadow-sm" : "text-[#8290a1] hover:text-[#536276]"}`}>{summary.id === "weekly" ? "Weekly" : "Monthly"}</button>)}
-                  </div>
-                </div>
-              </div>
-              <CashFlowChart summary={selectedSummary} />
-            </div>
-          </section>
-          <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-          <section className="rounded-2xl border border-[#c8dedd] bg-[#edf6f5] p-5 sm:p-6"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-[15px] font-bold tracking-[-0.02em]">Spending by category</h2><p className="mt-1 text-[12px] text-[#718096]">This month</p></div></div><div className="flex items-center gap-6"><div className="relative grid h-[118px] w-[118px] shrink-0 place-items-center rounded-full" style={{ background: "conic-gradient(#e27a68 0 34%, #18a999 34% 59%, #e7b95f 59% 78%, #7d9fc4 78% 90%, #d5dce2 90% 100%)" }}><div className="grid h-[76px] w-[76px] place-items-center rounded-full bg-[#edf6f5] text-center"><span className="text-[17px] font-bold">$1.8k</span><span className="text-[9px] text-[#8793a3]">total</span></div></div><div className="min-w-0 flex-1 space-y-3">{[["Housing", "$620", "#e27a68"], ["Food & dining", "$452", "#18a999"], ["Shopping", "$349", "#e7b95f"], ["Transport", "$220", "#7d9fc4"]].map(([label, amount, color]) => <div key={label} className="flex items-center justify-between gap-2 text-[11px]"><span className="flex items-center gap-2 truncate text-[#536276]"><i className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />{label}</span><span className="font-bold">{amount}</span></div>)}</div></div></section>
-
-          <section className="rounded-2xl border border-[#cbd9df] bg-[#f1f5f7] p-5 sm:p-6"><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="text-[15px] font-bold tracking-[-0.02em]">Recent transactions</h2>{transactionFilter !== "all" && <span className="rounded-full bg-[#d8eeeb] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[#087f73]">{transactionFilter}</span>}</div><p className="mt-1 text-[12px] text-[#718096]">Your latest activity across all accounts</p></div><div className="flex w-full gap-2 sm:w-auto"><div className="relative flex-1 sm:w-52"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8793a3]" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search transactions" className="h-9 w-full rounded-lg border border-[#cbd9df] bg-[#f8fbfc] pl-9 pr-3 text-[11px] outline-none placeholder:text-[#9aa7b5] focus:border-[#62b9b0]" /></div><button onClick={() => { const nextFilter = transactionFilter === "all" ? "income" : transactionFilter === "income" ? "spending" : "all"; setTransactionFilter(nextFilter); showFeedback(`Showing ${nextFilter} transactions.`); }} className="grid h-9 w-9 place-items-center rounded-lg border border-[#cbd9df] text-[#657286]" aria-label="Cycle transaction filter"><Filter size={15} /></button></div></div><div className="divide-y divide-[#dce5e9]">{filteredTransactions.map((transaction) => <div key={transaction.name} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[10px] font-bold text-[#3e5960] ${transaction.color}`}>{transaction.icon}</div><div className="min-w-0 flex-1"><p className="truncate text-[12px] font-bold">{transaction.name}</p><p className="mt-0.5 text-[10px] text-[#8793a3]">{transaction.category} · {transaction.date}</p></div><p className={`text-[12px] font-bold ${transaction.amount.startsWith("+") ? "text-[#087f73]" : "text-[#26364b]"}`}>{transaction.amount}</p><button onClick={() => showFeedback(`${transaction.name} actions are mocked for now.`)} className="hidden text-[#a5b0bc] sm:block" aria-label={`More options for ${transaction.name}`}><MoreHorizontal size={16} /></button></div>)}</div></section>
-          </div>
-
-          {showPending && <section className="mt-5 flex items-start gap-3 rounded-2xl border border-[#f0dcd7] bg-[#fff7f5] p-4"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#f7ddd7] text-[#d56654]"><Bell size={16} /></div><div className="flex-1"><p className="text-[12px] font-bold">3 transactions need your review</p><p className="mt-1 text-[11px] leading-5 text-[#8d6d68]">We found a few new transactions from your connected accounts.</p></div><button onClick={() => { setShowPending(false); showFeedback("Pending transactions marked for review."); }} className="rounded-lg bg-[#d56654] px-3 py-2 text-[10px] font-bold text-white hover:bg-[#bd5545]">Review now</button><button onClick={() => { setShowPending(false); showFeedback("Review reminder dismissed."); }} className="p-1 text-[#a98b86]" aria-label="Dismiss pending transaction notice"><X size={15} /></button></section>}
-
-          {showAddTransaction && <div className="fixed inset-0 z-40 grid place-items-center bg-[#162235]/35 p-5"><form onSubmit={handleAddTransaction} className="w-full max-w-md rounded-2xl border border-[#cbd9df] bg-[#f8fbfb] p-6 shadow-2xl"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-[17px] font-bold">Add transaction</h2><p className="mt-1 text-[11px] text-[#718096]">This mock entry will appear at the top of your activity.</p></div><button type="button" onClick={() => setShowAddTransaction(false)} className="text-[#8793a3]" aria-label="Close add transaction dialog"><X size={18} /></button></div><div className="space-y-3"><label className="block text-[11px] font-bold text-[#536276]">Merchant or source<input required value={newTransactionName} onChange={(event) => setNewTransactionName(event.target.value)} placeholder="e.g. Rent or freelance invoice" className="mt-1 h-10 w-full rounded-lg border border-[#cbd9df] bg-[#f1f5f7] px-3 text-[12px] outline-none focus:border-[#62b9b0]" /></label><label className="block text-[11px] font-bold text-[#536276]">Amount<input required min="0.01" step="0.01" type="number" value={newTransactionAmount} onChange={(event) => setNewTransactionAmount(event.target.value)} placeholder="0.00" className="mt-1 h-10 w-full rounded-lg border border-[#cbd9df] bg-[#f1f5f7] px-3 text-[12px] outline-none focus:border-[#62b9b0]" /></label><label className="block text-[11px] font-bold text-[#536276]">Category<select value={newTransactionCategory} onChange={(event) => setNewTransactionCategory(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-[#cbd9df] bg-[#f1f5f7] px-3 text-[12px] outline-none focus:border-[#62b9b0]"><option>Other</option><option>Groceries</option><option>Dining</option><option>Entertainment</option><option>Income</option></select></label></div><div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowAddTransaction(false)} className="rounded-lg px-3 py-2 text-[11px] font-bold text-[#536276] hover:bg-[#e3eaee]">Cancel</button><button type="submit" className="rounded-lg bg-[#162b46] px-4 py-2 text-[11px] font-bold text-white hover:bg-[#087f73]">Add transaction</button></div></form></div>}
-
-          {feedback && <button onClick={() => setFeedback(null)} className="fixed bottom-5 right-5 z-30 rounded-xl border border-[#b9d8d5] bg-[#d8eeeb] px-4 py-3 text-left text-[11px] font-bold text-[#075e59] shadow-lg">{feedback}</button>}
-
-          <footer className="flex flex-col gap-2 py-8 text-[10px] text-[#8793a3] sm:flex-row sm:items-center sm:justify-between"><span>Last synced just now · Sources are encrypted</span><span className="flex items-center gap-1.5"><ShieldCheck size={12} /> Your data stays yours</span></footer>
-        </section>
+  const update = (id: string, kind: NonNullable<TransactionLifecycle["actionHistory"]>[number]["kind"], detail: string, fn: (record: TransactionLifecycle) => TransactionLifecycle) => setState((current) => changeRecord(current, id, kind, detail, fn));
+  return <main className="finance-shell min-h-screen"><p role="status" aria-live="polite" className="sr-only">{announcement}</p><div className="finance-page">
+    <div className="finance-hero">
+      <header className="finance-header"><h1>Your activity</h1><label className="currency-picker">Displayed in <select aria-label="Reporting currency" value={currency} onChange={(event) => setState((current) => ({ ...current, defaultCurrency: event.target.value }))}>{SUPPORTED_REPORTING_CURRENCIES.map((item) => <option key={item}>{item}</option>)}</select></label></header>
+      <SourceSelector value={activeScope} onChange={setSourceScope} options={sourceOptions} />
+      <section aria-labelledby="all-time-heading" className="all-time-flow"><p id="all-time-heading">All-time detected net flow</p><p className="all-time-flow__amount">{money(allTime.netFlowMinor, currency)}</p><p className="all-time-flow__scope">{sourceLabel}</p></section>
+    </div>
+    <div className="finance-content">
+      <section aria-labelledby="weekly-heading" className="weekly-flow"><div className="weekly-flow__top"><h2 id="weekly-heading">Weekly net flow</h2><label>Week of <select aria-label="Selected week" value={selectedWeek} onChange={(event) => setWeek(event.target.value)}>{availableWeeks.map((item) => <option key={item}>{item}</option>)}</select></label></div><p className="weekly-flow__amount" data-sign={weekly.netFlowMinor > 0 ? "positive" : "nonpositive"}>{money(weekly.netFlowMinor, currency)}</p><div className="weekly-flow__parts"><p><span className="flow-mark flow-mark--income">+</span><span>Inflow <b data-flow="income">+{money(weekly.inflowMinor, currency)}</b></span></p><p><span className="flow-mark flow-mark--expense">−</span><span>Outflow <b data-flow="expense">{money(weekly.outflowMinor, currency)}</b></span></p></div><p className="flow-explanation">Detected activity from fictional notices, including classified pending items. This is not money remaining.</p>{allTime.unclassifiedAmountMinor > 0 && <p className="flow-unclassified">{money(allTime.unclassifiedAmountMinor, currency)} is unclassified and outside detected net flow until you choose its type.</p>}<details className="flow-more"><summary>What this covers</summary><p>All-time detected flow for {sourceLabel.toLowerCase()}: +{money(allTime.inflowMinor, currency)} inflow and {money(allTime.outflowMinor, currency)} outflow. It is not complete finances.</p></details></section>
+    {queue.total.count > 0 && <section className="needs-review-banner"><div className="flex items-center justify-between gap-4"><div><p className="flex items-center gap-2 font-bold"><AlertTriangle className="h-5 w-5 text-amber-700" />Needs review</p><p className="mt-1 text-sm text-amber-900">{queue.total.count} {queue.total.count === 1 ? "transaction needs" : "transactions need"} your attention {activeScope === "all" ? "across all sources" : `for ${sourceLabel}`}</p></div><button ref={reviewButtonRef} onClick={() => setReviewOpen((open) => !open)} aria-expanded={reviewOpen} className="rounded-xl border border-amber-500 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-600">{reviewOpen ? "Close" : "Review"}</button></div></section>}
+    {reviewOpen && queue.total.count > 0 && <section className="needs-review-panel mb-5 rounded-2xl border border-amber-300 bg-white p-4" aria-labelledby="review-heading"><div className="flex items-start justify-between gap-3"><div><h2 id="review-heading" className="font-bold">Review pending transactions</h2><p className="mt-1 text-sm text-slate-600">Open a transaction to see source information and resolve a missing detail.</p></div><button onClick={() => { setReviewOpen(false); reviewButtonRef.current?.focus(); }} className="rounded border px-2 py-1 text-sm">Close</button></div><details className="mt-3 rounded-lg bg-slate-50 p-3 text-sm"><summary className="cursor-pointer font-semibold">Review totals and coverage</summary><div className="mt-2 grid gap-2 sm:grid-cols-2"><ReviewScope title="This week" scope={queue.week} currency={currency} /><ReviewScope title="All-time history" scope={queue.total} currency={currency} /></div><p className="mt-2 text-xs text-slate-600">This week is already included in all-time history. Possible duplicates remain counted separately until decided.</p></details><div className="mt-4 rounded-lg border border-teal-200 bg-teal-50 p-3"><p className="text-sm font-semibold">{ready.length} ready to confirm</p><div className="mt-2 flex flex-wrap gap-2"><button onClick={() => setSelectedBulk(ready.map((record) => record.id))} className="rounded border px-3 py-2 text-sm">Select all ready</button><button disabled={selectedReady.length === 0} onClick={() => { setState((current) => confirmReady(current, currency, selectedWeek, selectedReady)); setSelectedBulk([]); }} className="rounded border border-teal-700 px-3 py-2 text-sm font-semibold text-teal-800 disabled:opacity-40">Confirm selected</button><button disabled={ready.length === 0} onClick={() => { setState((current) => confirmReady(current, currency, selectedWeek, ready.map((record) => record.id))); setSelectedBulk([]); }} className="rounded bg-teal-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">Confirm all ready ({ready.length})</button></div></div>{ready.length > 0 && <BulkGroup records={ready} selected={selectedReady} setSelected={setSelectedBulk} currency={currency} openRecord={openRecord} />}<div className="mt-4"><h3 className="text-sm font-bold uppercase tracking-wide text-slate-600">Needs attention ({queue.needsAttention.length})</h3>{queue.needsAttention.map((record) => <button key={record.id} data-record-id={record.id} onClick={(event) => openRecord(record.id, event.currentTarget)} className="mt-2 flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left text-sm focus:outline-none focus:ring-2 focus:ring-amber-600"><span><b className="block">{effectiveValues(record).merchantText ?? "Unlabelled activity"}</b><span className="block text-xs text-slate-600">{attentionReasons(record, state.records).join(" · ")}</span></span><b className="text-amber-800">{effectLabel(record, currency)}</b></button>)}</div></section>}
+    <div className="activity-sticky" data-visible={stickyVisible ? "true" : "false"} aria-hidden={!stickyVisible}>
+      <div className="activity-sticky__inner"><div className="activity-sticky__flow"><span>{activityWeekLabel(selectedWeek)} · detected net flow</span><b data-sign={weekly.netFlowMinor > 0 ? "positive" : "nonpositive"}>{money(weekly.netFlowMinor, currency)}</b></div>
+        <SourceSelector compact value={activeScope} onChange={setSourceScope} options={sourceOptions} />
+        <ActivityControls compact search={search} onSearch={setSearch} type={typeFilter} onType={setTypeFilter} />
       </div>
-    </main>
-  );
+    </div>
+    <section ref={activityRef} aria-labelledby="activity-heading" className="activity-panel mb-5 rounded-3xl border bg-white p-4 sm:p-5">
+      <div className="activity-panel__heading"><div><h2 id="activity-heading" tabIndex={-1} className="text-xl font-bold">Activity</h2><p className="text-sm text-slate-600">Open a transaction to review its source and details.</p></div><span className="text-xs text-slate-500">{activity.length} shown</span></div>
+      <div ref={activityToolbarRef} className="activity-toolbar"><ActivityControls search={search} onSearch={setSearch} type={typeFilter} onType={setTypeFilter} /></div>
+      {(search || typeFilter !== "all") && <p className="mt-3 text-xs text-slate-500">List filtered · the figures above still include all eligible activity from {sourceLabel.toLowerCase()}.</p>}
+      <div className="mt-4 space-y-6">{activityGroups.length === 0 && <p className="rounded-xl bg-white p-4 text-sm">No activity matches these filters.</p>}{activityGroups.map(group => <section key={group.week} className="activity-week" data-week={group.week}><h3 className="activity-week__title">{activityWeekLabel(group.week)}</h3><div className="activity-week__days">{group.days.map(day => <section key={day.day} className="activity-day" data-day={day.day}>{day.day !== "unknown" && <h4 className="activity-day__title">{activityDayLabel(day.day)}</h4>}<div className="space-y-2">{day.records.map(record => <ActivityCard key={record.id} record={record} records={state.records} currency={currency} onClick={event => openRecord(record.id, event.currentTarget)} />)}</div></section>)}</div></section>)}</div>
+    </section>
+    <details className="mb-5 rounded-2xl border bg-white p-4"><summary className="cursor-pointer text-base font-bold">How selected-week totals are calculated</summary><p className="mt-2 text-sm text-slate-600">Only active records for {sourceLabel.toLowerCase()} in the selected UTC calendar week are included. Each contribution is converted once into {currency}.</p><div className="mt-3 space-y-2">{weekly.effects.filter((effect) => effect.included).map((effect) => { const record = state.records.find((item) => item.id === effect.recordId)!, signed = effect.inflowMinor - effect.outflowMinor; return <div key={effect.recordId} className="flex justify-between gap-3 border-b py-2 text-sm"><span>{effectiveValues(record).merchantText ?? "Unlabelled activity"}</span><b>{signed >= 0 ? "+" : ""}{money(signed, currency)}</b></div>; })}</div></details>
+    <details className="rounded-2xl border bg-white p-4"><summary className="cursor-pointer text-base font-bold">Demo details</summary><p className="mt-2 text-sm text-slate-600">Fictional notices only. Fixed conversion table: {REPORTING_RATE_VERSION}.</p><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => setState((current) => focusedIds.reduce((next, id) => { const item = fixtureRecords.find((entry) => entry.id === id); return item ? processCapture(next, item.id, item.capture) : next; }, current))} className="rounded border px-3 py-2 text-sm">Replay focused fixtures</button><button onClick={() => setState((current) => fixtureRecords.reduce((next, item) => processCapture(next, item.id, item.capture), current))} className="rounded border px-3 py-2 text-sm">Process all {fixtureRecords.length} fixtures</button><button onClick={() => { if (confirm("Reset the fictional demo and its local decisions?")) setState(seededScenario()); }} className="rounded border px-3 py-2 text-sm"><RotateCcw className="mr-1 inline h-4 w-4" />Reset demo</button></div></details>
+    </div>
+  </div><TransactionDialog dialogRef={dialogRef} record={selected} records={state.records} currency={currency} closing={sheetClosing} onClose={() => closeDialog()} onComplete={closeDialog} setState={setState} update={update} /></main>;
+}
+
+function ReviewScope({ title, scope, currency }: { title: string; scope: { count: number; inflowMinor: number; outflowMinor: number; unclassifiedMinor: number; zeroCount: number }; currency: ReportingCurrency }) { return <p><b>{title}: {scope.count} records</b><span className="block">+{money(scope.inflowMinor, currency)} inflow · −{money(scope.outflowMinor, currency)} outflow</span><span className="block">{money(scope.unclassifiedMinor, currency)} unclassified · {scope.zeroCount} zero or unavailable</span></p>; }
+function ActivityCard({ record, records, currency, onClick }: { record: TransactionLifecycle; records: TransactionLifecycle[]; currency: ReportingCurrency; onClick: (event: React.MouseEvent<HTMLButtonElement>) => void }) {
+  const value = effectiveValues(record), wallet = walletForRecord(record);
+  const direction = ["income", "refund", "reversal"].includes(value.eventType) ? "income" : ["purchase", "generic_expense"].includes(value.eventType) ? "expense" : "other";
+  const directionLabel = direction === "income" ? "Income" : direction === "expense" ? "Expense" : value.eventType === "unknown" ? "Unclassified" : "Other movement";
+  const possibleDuplicate = records.some(item => item.relationships.some(rel => rel.kind === "possible_duplicate_of" && (item.id === record.id || rel.targetId === record.id)));
+  const status = record.disposition === "excluded" ? "Excluded" : record.confirmationState === "confirmed" ? "Confirmed" : "Needs review";
+  const statusKey = record.disposition === "excluded" ? "excluded" : record.confirmationState === "confirmed" ? "confirmed" : "pending";
+  return <button onClick={onClick} className="activity-card w-full text-left focus:outline-none focus:ring-2 focus:ring-teal-600" data-record-id={record.id} data-direction={direction} data-status={statusKey}>
+    <span className="activity-card__icon" aria-hidden="true">{direction === "income" ? "+" : direction === "expense" ? "−" : "·"}</span>
+    <span className="activity-card__body"><span className="activity-card__title">{value.merchantText ?? "Unlabelled activity"}</span><span className="activity-card__source">{wallet.basis === "user" ? `${wallet.label} · assigned by you` : wallet.basis === "conflict" ? wallet.label : wallet.detail}</span><span className="activity-card__meta">{humanDate(record)} · {directionLabel}{possibleDuplicate ? " · Possible duplicate" : ""}</span></span>
+    <span className="activity-card__right"><strong>{effectLabel(record, currency)}</strong><small className="activity-card__status">{statusKey === "confirmed" && <Check size={13} strokeWidth={3} aria-hidden="true" />}{statusKey === "pending" && <AlertTriangle size={13} strokeWidth={2.5} aria-hidden="true" />}{status}</small></span>
+  </button>;
+}
+
+function BulkGroup({ records, selected, setSelected, currency, openRecord }: { records: TransactionLifecycle[]; selected: string[]; setSelected: React.Dispatch<React.SetStateAction<string[]>>; currency: ReportingCurrency; openRecord: (id: string, trigger: HTMLElement) => void }) { return <div className="mt-3">{records.map((record) => <div key={record.id} className="mt-2 flex items-center gap-2 rounded-lg border p-3 focus-within:ring-2 focus-within:ring-teal-600"><label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3"><input type="checkbox" checked={selected.includes(record.id)} onChange={(event) => setSelected((current) => event.target.checked ? [...current, record.id] : current.filter((id) => id !== record.id))} className="mt-1" /><span className="min-w-0 text-sm"><b className="block truncate">{effectiveValues(record).merchantText ?? "Unlabelled activity"}</b><span className="block text-xs text-slate-600">No special attention reason · {effectLabel(record, currency)}</span></span></label><button type="button" onClick={(event) => openRecord(record.id, event.currentTarget)} className="shrink-0 rounded border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-600">Details</button></div>)}</div>; }
+function ConversionLine({ record, currency }: { record: TransactionLifecycle; currency: ReportingCurrency }) { const value = effectiveValues(record); if (value.amountMinor === undefined || !value.currency) return <p className="mt-2 text-sm">No usable monetary value</p>; const converted = convertMinor(value.amountMinor, value.currency, currency); if (!converted) return <p className="mt-2 text-sm">Unsupported currency</p>; const basis = value.currencyBasis === "user_corrected" ? "entered by you" : value.currencyBasis === "assumed_default" ? "assumed from the reporting default" : "source"; return <p className="mt-2 text-sm"><b>{money(value.amountMinor, value.currency as ReportingCurrency)}</b>{value.currency !== currency && <> → <b>{money(converted.reportingAmountMinor, currency)}</b></>}<span className="block text-xs text-slate-500">Fictional rate {converted.rateLabel} · currency from {basis}</span>{value.currencyBasis === "assumed_default" && <span className="mt-1 block text-xs font-semibold text-amber-800">Currency assumed from the reporting default. Review or change it if the source used another currency.</span>}</p>; }
+function TransactionDialog({ dialogRef, record, records, currency, closing, onClose, onComplete, setState, update }: {
+  dialogRef: React.RefObject<HTMLDialogElement | null>;
+  record?: TransactionLifecycle;
+  records: TransactionLifecycle[];
+  currency: ReportingCurrency;
+  closing: boolean;
+  onClose: () => void;
+  onComplete: (message: string, focusId?: string) => void;
+  setState: React.Dispatch<React.SetStateAction<ScenarioState>>;
+  update: (id: string, kind: NonNullable<TransactionLifecycle["actionHistory"]>[number]["kind"], detail: string, fn: (record: TransactionLifecycle) => TransactionLifecycle) => void;
+}) {
+  const [dirty, setDirty] = useState(false);
+  const [actionError, setActionError] = useState("");
+  useEffect(() => { setDirty(false); setActionError(""); }, [record?.id]);
+  const handleDirtyChange = useCallback((changed: boolean) => { setDirty(changed); setActionError(""); }, []);
+  const requestClose = () => { if (!closing && (!dirty || confirm("Discard unsaved changes?"))) onClose(); };
+  const cancel = (event: React.SyntheticEvent<HTMLDialogElement>) => { event.preventDefault(); requestClose(); };
+  if (!record) return <dialog ref={dialogRef} className="transaction-dialog" onCancel={cancel} />;
+
+  const value = effectiveValues(record);
+  const pair = counterpart(record, records);
+  const evidence = linkedEvidence(record, records);
+  const ownerId = duplicateOwnerId(record, pair);
+  const reasons = attentionReasons(record, records);
+  const blockingReasons = reasons.filter(reason => reason !== "Neutral money movement");
+  const neutral = ["transfer", "withdrawal"].includes(value.eventType);
+  const pending = record.confirmationState === "needs_confirmation";
+  const directConfirmReady = !pair && canConfirm(record) && (neutral ? neutralReviewReady(record, records) : reasons.length === 0);
+  const sourceEvidence = (item: TransactionLifecycle) => item.sourceCandidates.map(candidate => candidate.sourceFacts.evidence.map(field => `${field.field}: “${field.excerpt}”`).join(" · ")).join(" | ");
+  const matchingReasons = (item: TransactionLifecycle) => item.relationships.flatMap(rel => rel.reasons ?? []).map(reason => reason.replaceAll("_", " ")).join(", ");
+  const finish = (message: string, focusId = record.id) => { setActionError(""); onComplete(message, focusId); };
+  const confirmCurrent = () => {
+    if (dirty) { setActionError("Save or discard your edits before confirming."); return; }
+    if (!directConfirmReady) { setActionError("Review the items above before confirming this transaction."); return; }
+    setState(current => confirmRecord(current, record.id));
+    finish(neutral ? "Neutral transaction confirmed. Detected net flow is unchanged." : "Transaction confirmed.");
+  };
+  const decideDuplicate = (choice: "same" | "separate") => {
+    if (dirty) { setActionError("Save or discard your edits before deciding whether these notices match."); return; }
+    if (!ownerId || !pair) { setActionError("The paired notice is unavailable. No decision was saved."); return; }
+    setState(current => duplicateDecision(current, ownerId, choice));
+    finish(choice === "same" ? "Notices linked as one transaction." : "Notices kept as separate transactions.", choice === "same" && ownerId === record.id ? pair.id : record.id);
+  };
+
+  return <dialog ref={dialogRef} className="transaction-dialog" data-closing={closing ? "true" : "false"} aria-labelledby="transaction-title" onCancel={cancel} onClick={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
+    <div className="transaction-sheet-content">
+      <div className="flex items-start justify-between gap-3">
+        <div><p className="text-xs font-bold uppercase tracking-wide text-teal-700">Transaction</p><h2 id="transaction-title" className="text-xl font-bold">{value.merchantText ?? "Unlabelled activity"}</h2></div>
+        <button onClick={requestClose} className="rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-teal-600" aria-label="Close transaction"><X className="h-5 w-5" /></button>
+      </div>
+      <p className="mt-2 text-sm text-slate-600">{humanDate(record)} · {labels[groupingDate(record).basis]}</p>
+      <ConversionLine record={record} currency={currency} />
+      <section className="wallet-detail mt-4 rounded-xl border bg-slate-50 p-3 text-sm">
+        <h3 className="font-bold">Where it came from</h3>
+        <p className="mt-1">{walletForRecord(record).basis === "user" ? `${walletForRecord(record).label} · assigned by you` : walletForRecord(record).label}</p>
+        <p className="mt-1 text-xs text-slate-600">{walletForRecord(record).detail}</p>
+        <p className="mt-2 text-xs text-slate-600">Notice delivered by {record.sourceProvenance.map(source => source.provider ?? source.sourceType).join(", ")}. Bank and card details appear only when supplied by the notice or assigned by you.</p>
+      </section>
+      {pending && neutral && <section className="neutral-decision mt-4" aria-labelledby="neutral-decision-title">
+        <h3 id="neutral-decision-title">Check this neutral movement</h3>
+        <p>The source describes this as a {value.eventType === "transfer" ? "transfer" : "withdrawal"}. Confirming it leaves detected net flow unchanged.</p>
+        <p>If this was spending or money received, change <b>Type</b> to Expense or Income below, then choose Save and confirm.</p>
+        <button onClick={confirmCurrent} disabled={dirty || !directConfirmReady} className="neutral-decision__confirm rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">Confirm as neutral · no flow change</button>
+      </section>}
+      {pending && blockingReasons.length > 0 && <section className="review-guidance mt-3" aria-labelledby="review-guidance-title">
+        <h3 id="review-guidance-title">Check before confirming</h3>
+        <ul>{blockingReasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+      </section>}
+      <Editor key={`${record.id}:${record.actionHistory?.length ?? 0}`} record={record} wallets={walletOptions(records)} allowConfirm={!pair} onDirtyChange={handleDirtyChange} onSave={(overrides, confirmAfterSave) => {
+        const proposed = { ...record, userOverrides: { ...record.userOverrides, ...overrides }, evidenceConflict: undefined };
+        if (confirmAfterSave && (pair || !canConfirm(proposed))) {
+          setActionError(pair ? "Resolve the possible duplicate before confirming." : "Choose a type and complete the required amount, currency, or wallet details before confirming.");
+          return;
+        }
+        setState(current => {
+          const next = changeRecord(current, record.id, "edited", "User reviewed transaction details", item => ({ ...item, userOverrides: { ...item.userOverrides, ...overrides }, evidenceConflict: undefined }));
+          return confirmAfterSave ? confirmRecord(next, record.id) : next;
+        });
+        setDirty(false);
+        const savedNeutral = ["transfer", "withdrawal"].includes(effectiveValues(proposed).eventType);
+        finish(confirmAfterSave ? savedNeutral ? "Neutral transaction confirmed. Detected net flow is unchanged." : "Changes saved and transaction confirmed." : "Changes saved. Transaction remains available for review.");
+      }} undo={(field) => {
+        if (dirty) { setActionError("Save or discard your edits before undoing a field."); return; }
+        update(record.id, "edited", `Undo ${field}`, item => clearUserOverrides(item, field === "walletLabel" ? ["walletId", "walletLabel"] : [field]));
+      }} />
+      {dirty && <p className="review-unsaved-note">You have unsaved edits. Save them or close and discard them before another decision.</p>}
+      {actionError && <p role="alert" className="review-action-error">{actionError}</p>}
+      <div className="review-actions mt-4 flex flex-wrap gap-2">
+        {record.confirmationState === "confirmed"
+          ? <button disabled={dirty} onClick={() => { setState(current => undoConfirmation(current, record.id)); finish("Confirmation undone. Transaction needs review again."); }} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-40">Undo confirmation</button>
+          : !neutral && <button onClick={confirmCurrent} disabled={dirty || !directConfirmReady} className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">Confirm transaction</button>}
+        <button disabled={dirty} onClick={() => { const excluded = record.disposition !== "excluded"; update(record.id, excluded ? "excluded" : "restored", "Disposition changed", item => ({ ...item, disposition: excluded ? "excluded" : "active" })); finish(excluded ? "Transaction excluded from detected flow." : "Transaction restored to detected flow."); }} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-40">{record.disposition === "excluded" ? "Restore" : "Exclude"}</button>
+      </div>
+      {pair && <details className="duplicate-review mt-4 rounded-lg border p-3">
+        <summary className="cursor-pointer font-semibold">Possible duplicate: compare notices</summary>
+        <p className="mt-2 text-sm">{effectiveValues(pair).merchantText ?? "Unlabelled activity"} · {effectLabel(pair, currency)} · {humanDate(pair)}</p>
+        <p className="mt-1 text-xs">Both are currently counted. Decide only after comparing source evidence.</p>
+        <div className="duplicate-review__evidence mt-2 space-y-2 rounded p-2 text-xs">{[record, pair].map(item => <div key={item.id}><b>{item.sourceProvenance.map(source => source.provider ?? source.sourceType).join(", ")}</b><p>Original source: {sourceEvidence(item)}</p><p>Matching reasons: {matchingReasons(item) || "No matching reason stored on this notice"}</p></div>)}</div>
+        <div className="mt-3 flex flex-wrap gap-2"><button disabled={!ownerId || dirty} onClick={() => decideDuplicate("same")} className="rounded bg-teal-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">Same transaction</button><button disabled={!ownerId || dirty} onClick={() => decideDuplicate("separate")} className="rounded border px-3 py-2 text-sm disabled:opacity-40">Keep as separate</button></div>
+      </details>}
+      {evidence.length > 1 && <details className="linked-evidence mt-4 rounded-lg border p-3">
+        <summary className="cursor-pointer font-semibold">{evidence.length} linked source notices · counted once</summary>
+        {evidence.map(item => <div key={item.id} className="mt-2 text-sm"><p><b>{item.id === record.id ? "Retained impact" : "Linked evidence"}:</b> {humanDate(item)} · {item.sourceProvenance.map(source => source.provider ?? source.sourceType).join(", ")}</p><p className="text-xs">Original: {sourceEvidence(item)}</p><p className="text-xs">Matching reasons: {matchingReasons(item) || "See paired comparison"}</p></div>)}
+        <button disabled={dirty} onClick={() => { const child = evidence.find(item => item.id !== record.id); if (!child) return; setState(current => duplicateDecision(current, child.id, "undo")); finish("Duplicate decision undone.", child.id); }} className="mt-3 rounded border px-3 py-2 text-sm disabled:opacity-40">Undo duplicate decision</button>
+      </details>}
+      <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold">Source, history, and provenance</summary><p className="mt-2 text-xs">Original: {sourceEvidence(record)}</p>{(record.actionHistory ?? []).map(action => <p key={action.id} className="mt-1 border-t pt-1 text-xs">{action.kind.replaceAll("_", " ")}: {action.detail}</p>)}</details>
+    </div>
+  </dialog>;
+}
+
+function Editor({ record, wallets, allowConfirm, onSave, undo, onDirtyChange }: { record: TransactionLifecycle; wallets: Array<{ key: string; label: string }>; allowConfirm: boolean; onSave: (overrides: TransactionLifecycle["userOverrides"], confirmAfterSave: boolean) => void; undo: (field: keyof TransactionLifecycle["userOverrides"]) => void; onDirtyChange: (dirty: boolean) => void }) {
+  const value = effectiveValues(record);
+  const initialAmount = value.amountMinor === undefined ? "" : String(value.amountMinor / (value.currency === "JPY" ? 1 : 100));
+  const initialCurrency = (record.evidenceConflict && record.interpretation.currency) || value.currency || "";
+  const initialKind = value.eventType, initialMerchant = value.merchantText ?? "", initialDate = groupingDate(record).value?.slice(0, 10) ?? "";
+  const initialWallet = record.userOverrides.walletId ?? "";
+  const [amount, setAmount] = useState(initialAmount), [currency, setCurrency] = useState(initialCurrency), [kind, setKind] = useState(initialKind), [merchant, setMerchant] = useState(initialMerchant), [date, setDate] = useState(initialDate);
+  const [walletChoice, setWalletChoice] = useState(initialWallet.startsWith("manual:") ? "__new" : initialWallet), [walletName, setWalletName] = useState(initialWallet.startsWith("manual:") ? record.userOverrides.walletLabel ?? "" : "");
+  const pending = record.confirmationState === "needs_confirmation", amountNeedsDecision = pending && value.amountMinor === undefined, currencyNeedsDecision = pending && (!value.currency || value.currencyBasis === "assumed_default"), typeNeedsDecision = pending && value.eventType === "unknown", walletNeedsDecision = pending && sourceIdentityConflict(record) && !record.userOverrides.walletLabel;
+  const initialWalletChoice = initialWallet.startsWith("manual:") ? "__new" : initialWallet;
+  const isDirty = amount !== initialAmount || currency !== initialCurrency || kind !== initialKind || merchant !== initialMerchant || date !== initialDate || walletChoice !== initialWalletChoice || walletName !== (initialWallet.startsWith("manual:") ? record.userOverrides.walletLabel ?? "" : "");
+  useEffect(() => onDirtyChange(isDirty), [isDirty, onDirtyChange]);
+  const fieldClass = (needsDecision: boolean) => `mt-1 block w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-teal-600 ${needsDecision ? "border-2 border-amber-500 bg-amber-50" : ""}`;
+  const overrides = (): TransactionLifecycle["userOverrides"] | undefined => {
+    const parsedAmount = amount === "" ? undefined : Math.round(Number(amount) * (currency === "JPY" ? 1 : 100));
+    if (amount !== initialAmount && (!amount || !Number.isFinite(parsedAmount))) return undefined;
+    const next: TransactionLifecycle["userOverrides"] = {};
+    if (amount !== initialAmount) next.amountMinor = parsedAmount;
+    if (currency.toUpperCase() !== initialCurrency.toUpperCase() && currency) next.currency = currency.toUpperCase();
+    if (kind !== initialKind) next.eventType = kind as TransactionKind;
+    if (merchant !== initialMerchant) next.merchantLabel = merchant;
+    if (date !== initialDate && date) next.occurredAt = date;
+    if (walletChoice !== initialWalletChoice || (walletChoice === "__new" && walletName !== (record.userOverrides.walletLabel ?? ""))) {
+      if (walletChoice === "__new") {
+        const label = walletName.trim();
+        if (!label) return undefined;
+        next.walletId = `manual:${label.toLowerCase()}`;
+        next.walletLabel = label;
+      } else if (walletChoice) {
+        const selected = wallets.find(item => item.key === walletChoice);
+        if (!selected) return undefined;
+        next.walletId = selected.key;
+        next.walletLabel = selected.label;
+      }
+    }
+    return Object.keys(next).length ? next : undefined;
+  };
+  const save = (confirmAfterSave: boolean) => { const next = overrides(); if (next) onSave(next, confirmAfterSave); };
+  const currentSubtype = kind !== "unknown" && !["generic_expense", "income", "transfer"].includes(kind);
+  return <form onSubmit={event => { event.preventDefault(); if (pending && allowConfirm) save(true); }} className="mt-4 border-t pt-4 text-sm">
+    <h3 className="font-bold">Review or correct</h3><p className="mb-3 text-xs text-slate-600">Amber fields need your decision. Original source details stay visible above.</p>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label>Amount<input aria-label="Corrected amount" value={amount} onChange={event => setAmount(event.target.value)} className={fieldClass(amountNeedsDecision)} /></label>
+      <label>Currency<select aria-label="Corrected currency" value={currency} onChange={event => setCurrency(event.target.value)} className={fieldClass(currencyNeedsDecision)}><option value="">Choose currency</option>{SUPPORTED_REPORTING_CURRENCIES.map(item => <option key={item}>{item}</option>)}</select></label>
+      <label>Type<select aria-label="Corrected type" value={kind} onChange={event => setKind(event.target.value as TransactionKind)} className={fieldClass(typeNeedsDecision)}><option value="unknown">Choose type</option>{currentSubtype && <option value={kind}>{labels[kind]}</option>}<option value="generic_expense">Expense</option><option value="income">Income</option><option value="transfer">Transfer between accounts</option></select></label>
+      <label>Description<input aria-label="Corrected description" value={merchant} onChange={event => setMerchant(event.target.value)} className={fieldClass(false)} /></label>
+      <label>Corrected date<input aria-label="Corrected date" type="date" value={date} onChange={event => setDate(event.target.value)} className={fieldClass(false)} /><span className="mt-1 block text-xs text-slate-600">The source timestamp stays in the evidence.</span></label>
+      <label>Wallet assignment<select aria-label="Wallet assignment" value={walletChoice} onChange={event => setWalletChoice(event.target.value)} className={fieldClass(walletNeedsDecision)}><option value="">Use source details / leave unidentified</option>{wallets.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}<option value="__new">Name a wallet yourself</option></select></label>
+      {walletChoice === "__new" && <label>Wallet name<input aria-label="Wallet name" value={walletName} onChange={event => setWalletName(event.target.value)} placeholder="e.g. My everyday account" className={fieldClass(walletNeedsDecision)} /></label>}
+    </div>
+    {isDirty && !overrides() && <p className="review-action-error mt-3" role="alert">{amount !== initialAmount && (!amount || !Number.isFinite(Number(amount))) ? "Enter a valid amount before saving." : walletChoice === "__new" && !walletName.trim() ? "Name the wallet before saving." : "Complete the changed fields before saving."}</p>}
+    <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={!isDirty || !overrides()} onClick={() => save(false)} className="rounded-lg border border-teal-700 px-3 py-2 font-semibold text-teal-800 disabled:opacity-40">Save changes</button>{pending && allowConfirm && <button disabled={!overrides()} className="rounded-lg bg-teal-700 px-3 py-2 font-semibold text-white disabled:opacity-40">{["transfer", "withdrawal"].includes(kind) ? "Save and confirm as neutral" : "Save and confirm"}</button>}{(["amountMinor", "currency", "eventType", "merchantLabel", "occurredAt", "walletLabel"] as const).filter(field => record.userOverrides[field] !== undefined).map(field => <button key={field} type="button" onClick={() => undo(field)} className="rounded-lg border px-2 py-1">Undo {field === "walletLabel" ? "wallet assignment" : field}</button>)}</div>
+  </form>;
 }

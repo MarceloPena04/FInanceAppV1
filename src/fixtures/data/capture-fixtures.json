@@ -1,0 +1,1131 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "id": "normal-purchase-email-eur",
+      "capture": {
+        "captureId": "capture-001",
+        "sourceType": "email",
+        "provider": "fictional-ledger-mail",
+        "capturedAt": "2026-09-28T08:42:00Z",
+        "rawText": "Purchase confirmed: EUR 12.99 at Blue Kettle Cafe on 2026-09-27. Bank: North Example Bank; Account ending 6621; Card ending 3434.",
+        "metadata": {
+          "externalId": "mail-001",
+          "institutionName": "North Example Bank",
+          "accountReference": "north-account-6621",
+          "paymentInstrumentReference": "north-card-3434",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Purchase confirmed"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 1299,
+            "currency": "EUR",
+            "occurredAt": "2026-09-27",
+            "merchantText": "Blue Kettle Cafe",
+            "kind": "purchase",
+            "fundingSource": { "institution": "North Example Bank", "account": "••6621", "card": "••3434" },
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 12.99"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Blue Kettle Cafe"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "same-purchase-push-eur",
+      "relationship": {
+        "kind": "same_conceptual_transaction",
+        "group": "shared-purchase-001"
+      },
+      "capture": {
+        "captureId": "capture-002",
+        "sourceType": "push_notification",
+        "provider": "fictional-ledger-app",
+        "capturedAt": "2026-09-28T08:42:04Z",
+        "rawText": "Fictional Ledger: EUR 12.99 paid to Blue Kettle Cafe.",
+        "metadata": {
+          "externalId": "push-001",
+          "applicationId": "com.example.fictionalledger",
+          "channel": "transaction_alerts"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 1299,
+            "currency": "EUR",
+            "merchantText": "Blue Kettle Cafe",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 12.99"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Blue Kettle Cafe"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "credit-income-email-usd",
+      "capture": {
+        "captureId": "capture-003",
+        "sourceType": "email",
+        "capturedAt": "2026-09-26T16:00:00Z",
+        "rawText": "Credit received: USD 2400.00 from Fictional Studio payroll on 2026-09-26. Bank: South Example Bank; Account ending 7732.",
+        "metadata": {
+          "externalId": "mail-003",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-7732",
+          "sender": "updates@fictional-pay.example",
+          "subject": "Credit received"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 240000,
+            "currency": "USD",
+            "occurredAt": "2026-09-26",
+            "merchantText": "Fictional Studio payroll",
+            "kind": "income",
+            "fundingSource": { "institution": "South Example Bank", "account": "••7732" },
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "USD 2400.00"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Credit received"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "withdrawal-needs-classification",
+      "capture": {
+        "captureId": "capture-004",
+        "sourceType": "push_notification",
+        "capturedAt": "2026-09-25T11:10:00Z",
+        "rawText": "Cash withdrawal EUR 60.00 at Fictional ATM Central.",
+        "metadata": {
+          "externalId": "push-004",
+          "packageId": "com.example.cashnotice",
+          "channel": "cash"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 6000,
+            "currency": "EUR",
+            "merchantText": "Fictional ATM Central",
+            "kind": "withdrawal",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 60.00"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Cash withdrawal"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "missing-amount",
+      "capture": {
+        "captureId": "capture-005",
+        "sourceType": "email",
+        "capturedAt": "2026-09-24T09:00:00Z",
+        "rawText": "Purchase confirmed at Paper Lantern Books on 2026-09-24.",
+        "metadata": {
+          "externalId": "mail-005",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Purchase confirmed"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "incomplete",
+          "sourceFacts": {
+            "merchantText": "Paper Lantern Books",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "merchantText",
+                "excerpt": "Paper Lantern Books"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Purchase confirmed"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "missing-merchant",
+      "capture": {
+        "captureId": "capture-006",
+        "sourceType": "push_notification",
+        "capturedAt": "2026-09-23T18:30:00Z",
+        "rawText": "Transaction completed: USD 8.50.",
+        "metadata": {
+          "externalId": "push-006",
+          "applicationId": "com.example.fictionalledger",
+          "channel": "transaction_alerts"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 850,
+            "currency": "USD",
+            "kind": "unknown",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "USD 8.50"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Transaction completed"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "unsupported-bank-service-notice",
+      "capture": {
+        "captureId": "capture-007",
+        "sourceType": "email",
+        "capturedAt": "2026-09-22T08:00:00Z",
+        "rawText": "Your fictional bank service hours change this weekend.",
+        "metadata": {
+          "externalId": "mail-007",
+          "sender": "news@fictional-ledger.example",
+          "subject": "Service hours"
+        }
+      },
+      "expected": {
+        "outcome": "no_candidate",
+        "reason": "The notice contains no financial event."
+      }
+    },
+    {
+      "id": "refund-eur",
+      "capture": {
+        "captureId": "capture-008",
+        "sourceType": "email",
+        "capturedAt": "2026-09-21T14:20:00Z",
+        "rawText": "Refund issued: EUR 18.40 from Northwind Outfitters on 2026-09-21.",
+        "metadata": {
+          "externalId": "mail-008",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Refund issued",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-7732"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 1840,
+            "currency": "EUR",
+            "occurredAt": "2026-09-21",
+            "merchantText": "Northwind Outfitters",
+            "kind": "refund",
+            "fundingSource": { "institution": "South Example Bank", "account": "••7732" },
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 18.40"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Refund issued"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "reversal-eur",
+      "capture": {
+        "captureId": "capture-009",
+        "sourceType": "push_notification",
+        "capturedAt": "2026-09-20T10:15:00Z",
+        "rawText": "Card transaction reversed: EUR 15.00 at Cedar Market.",
+        "metadata": {
+          "externalId": "push-009",
+          "applicationId": "com.example.fictionalledger",
+          "channel": "transaction_alerts"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 1500,
+            "currency": "EUR",
+            "merchantText": "Cedar Market",
+            "kind": "reversal",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 15.00"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Card transaction reversed"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "pending-authorization-usd",
+      "relationship": {
+        "kind": "same_conceptual_transaction",
+        "group": "pending-finalized-001"
+      },
+      "capture": {
+        "captureId": "capture-010",
+        "sourceType": "push_notification",
+        "capturedAt": "2026-09-19T12:02:00Z",
+        "rawText": "Pending authorization: USD 43.25 at Harbor Noodles.",
+        "metadata": {
+          "externalId": "push-010",
+          "packageId": "com.example.cashnotice",
+          "channel": "authorizations"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 4325,
+            "currency": "USD",
+            "merchantText": "Harbor Noodles",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "USD 43.25"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Pending authorization"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "finalized-authorization-usd",
+      "relationship": {
+        "kind": "same_conceptual_transaction",
+        "group": "pending-finalized-001"
+      },
+      "capture": {
+        "captureId": "capture-011",
+        "sourceType": "email",
+        "capturedAt": "2026-09-20T12:08:00Z",
+        "rawText": "Transaction finalized: USD 43.25 at Harbor Noodles on 2026-09-19.",
+        "metadata": {
+          "externalId": "mail-011",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Transaction finalized"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 4325,
+            "currency": "USD",
+            "occurredAt": "2026-09-19",
+            "merchantText": "Harbor Noodles",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "USD 43.25"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Transaction finalized"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "duplicate-source-original",
+      "relationship": {
+        "kind": "exact_duplicate_of",
+        "group": "source-duplicate-001"
+      },
+      "capture": {
+        "captureId": "capture-012",
+        "sourceType": "email",
+        "capturedAt": "2026-09-18T17:00:00Z",
+        "rawText": "Purchase confirmed: EUR 7.20 at Morning Grain Bakery.",
+        "metadata": {
+          "externalId": "mail-duplicate-001",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Purchase confirmed"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 720,
+            "currency": "EUR",
+            "merchantText": "Morning Grain Bakery",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 7.20"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Morning Grain Bakery"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "duplicate-source-replay",
+      "relationship": {
+        "kind": "exact_duplicate_of",
+        "group": "source-duplicate-001"
+      },
+      "capture": {
+        "captureId": "capture-013",
+        "sourceType": "email",
+        "capturedAt": "2026-09-18T17:01:00Z",
+        "rawText": "Purchase confirmed: EUR 7.20 at Morning Grain Bakery.",
+        "metadata": {
+          "externalId": "mail-duplicate-001",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Purchase confirmed"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 720,
+            "currency": "EUR",
+            "merchantText": "Morning Grain Bakery",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 7.20"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Morning Grain Bakery"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "similar-not-duplicate-one",
+      "capture": {
+        "captureId": "capture-014",
+        "sourceType": "email",
+        "capturedAt": "2026-09-17T09:01:00Z",
+        "rawText": "Purchase confirmed: EUR 4.50 at Lantern Metro.",
+        "metadata": {
+          "externalId": "mail-014",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Purchase confirmed"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 450,
+            "currency": "EUR",
+            "merchantText": "Lantern Metro",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 4.50"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Lantern Metro"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "similar-not-duplicate-two",
+      "capture": {
+        "captureId": "capture-015",
+        "sourceType": "email",
+        "capturedAt": "2026-09-17T18:40:00Z",
+        "rawText": "Purchase confirmed: EUR 4.50 at Lantern Metro.",
+        "metadata": {
+          "externalId": "mail-015",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Purchase confirmed"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 450,
+            "currency": "EUR",
+            "merchantText": "Lantern Metro",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 4.50"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Lantern Metro"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "ambiguous-merchant-mxn",
+      "capture": {
+        "captureId": "capture-016",
+        "sourceType": "push_notification",
+        "capturedAt": "2026-09-16T20:00:00Z",
+        "rawText": "MXN 189.00 charged by THE CORNER 17.",
+        "metadata": {
+          "externalId": "push-016",
+          "applicationId": "com.example.fictionalledger",
+          "channel": "transaction_alerts"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 18900,
+            "currency": "MXN",
+            "merchantText": "THE CORNER 17",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "MXN 189.00"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "THE CORNER 17"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "transfer-eur",
+      "capture": {
+        "captureId": "capture-017",
+        "sourceType": "email",
+        "capturedAt": "2026-09-15T08:30:00Z",
+        "rawText": "Transfer sent: EUR 100.00 to Savings Pocket.",
+        "metadata": {
+          "externalId": "mail-017",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Transfer sent",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-1122"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 10000,
+            "currency": "EUR",
+            "merchantText": "Savings Pocket",
+            "kind": "transfer",
+            "fundingSource": { "institution": "South Example Bank", "account": "••1122" },
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 100.00"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Transfer sent"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "unsupported-marketing-push",
+      "capture": {
+        "captureId": "capture-018",
+        "sourceType": "push_notification",
+        "capturedAt": "2026-09-14T10:00:00Z",
+        "rawText": "Fictional Ledger: Try our new travel tips today.",
+        "metadata": {
+          "externalId": "push-018",
+          "applicationId": "com.example.fictionalledger",
+          "channel": "marketing"
+        }
+      },
+      "expected": {
+        "outcome": "no_candidate",
+        "reason": "Marketing notifications are not financial events."
+      }
+    },
+    {
+      "id": "malformed-financial-notice",
+      "capture": {
+        "captureId": "capture-019",
+        "sourceType": "other",
+        "capturedAt": "2026-09-13T10:00:00Z",
+        "rawText": "Payment %% @@ ???",
+        "metadata": {
+          "externalId": "other-019",
+          "channel": "import"
+        }
+      },
+      "expected": {
+        "outcome": "no_candidate",
+        "reason": "The artifact cannot support a reliable financial interpretation."
+      }
+    },
+    {
+      "id": "purchase-jpy-email",
+      "capture": {
+        "captureId": "capture-020",
+        "sourceType": "email",
+        "capturedAt": "2026-09-12T13:00:00Z",
+        "rawText": "Purchase confirmed: JPY 1200 at Paper Crane Stationery.",
+        "metadata": {
+          "externalId": "mail-020",
+          "sender": "alerts@fictional-ledger.example",
+          "subject": "Purchase confirmed"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 1200,
+            "currency": "JPY",
+            "merchantText": "Paper Crane Stationery",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "JPY 1200"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Paper Crane Stationery"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "purchase-email-with-subject-metadata",
+      "capture": {
+        "captureId": "capture-021",
+        "sourceType": "email",
+        "provider": "archive-import",
+        "capturedAt": "2026-09-11T07:30:00Z",
+        "rawText": "EUR 22.00 paid to River Desk Supplies.",
+        "metadata": {
+          "externalId": "mail-021",
+          "sender": "mailbox@archive.example",
+          "subject": "Your receipt",
+          "channel": "inbox"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 2200,
+            "currency": "EUR",
+            "merchantText": "River Desk Supplies",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 22.00"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "River Desk Supplies"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "income-push-mxn",
+      "capture": {
+        "captureId": "capture-022",
+        "sourceType": "push_notification",
+        "capturedAt": "2026-09-10T15:00:00Z",
+        "rawText": "Deposit received: MXN 950.00 from Fictional Market.",
+        "metadata": {
+          "externalId": "push-022",
+          "applicationId": "com.example.cashnotice",
+          "channel": "credits"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 95000,
+            "currency": "MXN",
+            "merchantText": "Fictional Market",
+            "kind": "income",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "MXN 950.00"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Deposit received"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "purchase-without-date",
+      "capture": {
+        "captureId": "capture-023",
+        "sourceType": "fixture",
+        "capturedAt": "2026-09-09T12:00:00Z",
+        "rawText": "Purchase: EUR 31.10 at Quiet Harbor Grocery.",
+        "metadata": {
+          "externalId": "fixture-023",
+          "channel": "synthetic"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 3110,
+            "currency": "EUR",
+            "merchantText": "Quiet Harbor Grocery",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 31.10"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Quiet Harbor Grocery"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "refund-push-usd",
+      "capture": {
+        "captureId": "capture-024",
+        "sourceType": "push_notification",
+        "capturedAt": "2026-09-08T19:00:00Z",
+        "rawText": "USD 6.75 refund posted by Cloud Berry Games.",
+        "metadata": {
+          "externalId": "push-024",
+          "applicationId": "com.example.fictionalledger",
+          "channel": "transaction_alerts"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 675,
+            "currency": "USD",
+            "merchantText": "Cloud Berry Games",
+            "kind": "refund",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "USD 6.75"
+              },
+              {
+                "field": "kind",
+                "excerpt": "refund posted"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "neutral-security-email",
+      "capture": {
+        "captureId": "capture-025",
+        "sourceType": "email",
+        "capturedAt": "2026-09-07T06:00:00Z",
+        "rawText": "Your sign-in settings were updated.",
+        "metadata": {
+          "externalId": "mail-025",
+          "sender": "security@fictional-ledger.example",
+          "subject": "Security settings updated"
+        }
+      },
+      "expected": {
+        "outcome": "no_candidate",
+        "reason": "Security notifications are not financial events."
+      }
+    },
+    {
+      "id": "apple-pay-purchase-eur",
+      "capture": {
+        "captureId": "capture-026",
+        "sourceType": "push_notification",
+        "provider": "Apple Pay",
+        "capturedAt": "2026-09-06T12:45:00Z",
+        "rawText": "Apple Pay: EUR 16.80 paid to Willow Bakery. Bank: North Example Bank; Card ending 9088.",
+        "metadata": {
+          "externalId": "apple-pay-026",
+          "institutionName": "North Example Bank",
+          "paymentInstrumentReference": "north-card-9088",
+          "applicationId": "com.example.wallet-fixture",
+          "channel": "wallet_transaction"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 1680,
+            "currency": "EUR",
+            "merchantText": "Willow Bakery",
+            "kind": "purchase",
+            "fundingSource": { "institution": "North Example Bank", "card": "••9088" },
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 16.80"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Willow Bakery"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "google-pay-purchase-usd",
+      "capture": {
+        "captureId": "capture-027",
+        "sourceType": "push_notification",
+        "provider": "Google Pay",
+        "capturedAt": "2026-09-05T17:10:00Z",
+        "rawText": "Google Pay: USD 27.40 paid to North Loop Market.",
+        "metadata": {
+          "externalId": "google-pay-027",
+          "applicationId": "com.example.wallet-fixture",
+          "channel": "wallet_transaction"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 2740,
+            "currency": "USD",
+            "merchantText": "North Loop Market",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "USD 27.40"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "North Loop Market"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "payment-without-currency",
+      "capture": {
+        "captureId": "capture-028",
+        "sourceType": "fixture",
+        "capturedAt": "2026-09-04T10:00:00Z",
+        "rawText": "Payment completed: 17.50 at Example Cafe.",
+        "metadata": {
+          "externalId": "fixture-028",
+          "channel": "synthetic",
+          "institutionName": "South Example Bank",
+          "accountReference": "south-account-7732"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 1750,
+            "merchantText": "Example Cafe",
+            "kind": "purchase",
+            "fundingSource": { "institution": "South Example Bank", "account": "••7732" },
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "17.50"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "Example Cafe"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Payment completed: 17.50 at Example Cafe"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "purchase-without-captured-at",
+      "capture": {
+        "captureId": "capture-029",
+        "sourceType": "fixture",
+        "rawText": "Purchase confirmed: EUR 9.40 at North Pier Market.",
+        "metadata": {
+          "externalId": "fixture-029",
+          "channel": "synthetic"
+        }
+      },
+      "expected": {
+        "outcome": "candidate",
+        "candidate": {
+          "status": "detected",
+          "sourceFacts": {
+            "amountMinor": 940,
+            "currency": "EUR",
+            "merchantText": "North Pier Market",
+            "kind": "purchase",
+            "evidence": [
+              {
+                "field": "amount",
+                "excerpt": "EUR 9.40"
+              },
+              {
+                "field": "currency",
+                "excerpt": "EUR"
+              },
+              {
+                "field": "merchantText",
+                "excerpt": "North Pier Market"
+              },
+              {
+                "field": "kind",
+                "excerpt": "Purchase confirmed"
+              }
+            ]
+          },
+          "inferred": {}
+        }
+      }
+    },
+    {
+      "id": "exact-cross-source-email",
+      "capture": {
+        "captureId": "capture-031", "sourceType": "email", "provider": "fictional-ledger-mail",
+        "capturedAt": "2026-09-29T10:00:00Z",
+        "rawText": "Purchase confirmed: EUR 8.50 at Exact Corner on 2026-09-29T09:58:12Z. Bank: North Example Bank; Account ending 6621; Card ending 3434.",
+        "metadata": { "externalId": "mail-031", "institutionName": "North Example Bank", "accountReference": "north-account-6621", "paymentInstrumentReference": "north-card-3434" }
+      },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 850, "currency": "EUR", "occurredAt": "2026-09-29T09:58:12Z", "merchantText": "Exact Corner", "kind": "purchase", "fundingSource": { "institution": "North Example Bank", "account": "••6621", "card": "••3434" }, "evidence": [{ "field": "amount", "excerpt": "EUR 8.50" }] }, "inferred": {} } }
+    },
+    {
+      "id": "exact-cross-source-push",
+      "capture": {
+        "captureId": "capture-032", "sourceType": "push_notification", "provider": "fictional-ledger-app",
+        "capturedAt": "2026-09-29T10:00:03Z",
+        "rawText": "Purchase confirmed: EUR 8.50 at Exact Corner on 2026-09-29T09:58:12Z. Bank: North Example Bank; Account ending 6621; Card ending 3434.",
+        "metadata": { "externalId": "push-032", "institutionName": "North Example Bank", "accountReference": "north-account-6621", "paymentInstrumentReference": "north-card-3434" }
+      },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 850, "currency": "EUR", "occurredAt": "2026-09-29T09:58:12Z", "merchantText": "Exact Corner", "kind": "purchase", "fundingSource": { "institution": "North Example Bank", "account": "••6621", "card": "••3434" }, "evidence": [{ "field": "amount", "excerpt": "EUR 8.50" }] }, "inferred": {} } }
+    },
+    {
+      "id": "sparse-cross-source-email",
+      "capture": { "captureId": "capture-033", "sourceType": "email", "provider": "fictional-ledger-mail", "capturedAt": "2026-09-29T11:00:00Z", "rawText": "Purchase confirmed: EUR 6.00 at Sparse Stop on 2026-09-29.", "metadata": { "externalId": "mail-033" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 600, "currency": "EUR", "occurredAt": "2026-09-29", "merchantText": "Sparse Stop", "kind": "purchase", "evidence": [{ "field": "amount", "excerpt": "EUR 6.00" }] }, "inferred": {} } }
+    },
+    {
+      "id": "sparse-cross-source-push",
+      "capture": { "captureId": "capture-034", "sourceType": "push_notification", "provider": "fictional-ledger-app", "capturedAt": "2026-09-29T11:00:03Z", "rawText": "Purchase confirmed: EUR 6.00 at Sparse Stop on 2026-09-29.", "metadata": { "externalId": "push-034" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 600, "currency": "EUR", "occurredAt": "2026-09-29", "merchantText": "Sparse Stop", "kind": "purchase", "evidence": [{ "field": "amount", "excerpt": "EUR 6.00" }] }, "inferred": {} } }
+    },
+    {
+      "id": "referenced-pending-usd",
+      "capture": { "captureId": "capture-035", "sourceType": "push_notification", "provider": "fictional-ledger-app", "capturedAt": "2026-09-29T12:00:00Z", "rawText": "Pending authorization: USD 20.00 at Final Bowl on 2026-09-29T11:55:00Z.", "metadata": { "externalId": "push-035", "transactionReference": "txn-35" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 2000, "currency": "USD", "occurredAt": "2026-09-29T11:55:00Z", "merchantText": "Final Bowl", "kind": "purchase", "evidence": [{ "field": "amount", "excerpt": "USD 20.00" }] }, "inferred": {} } }
+    },
+    {
+      "id": "referenced-finalized-usd",
+      "capture": { "captureId": "capture-036", "sourceType": "email", "provider": "fictional-ledger-mail", "capturedAt": "2026-09-29T12:02:00Z", "rawText": "Transaction finalized: USD 21.25 at Final Bowl on 2026-09-29T11:55:00Z.", "metadata": { "externalId": "mail-036", "transactionReference": "txn-35" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 2125, "currency": "USD", "occurredAt": "2026-09-29T11:55:00Z", "merchantText": "Final Bowl", "kind": "purchase", "evidence": [{ "field": "amount", "excerpt": "USD 21.25" }] }, "inferred": {} } }
+    },
+    {
+      "id": "unlinked-pending-usd",
+      "capture": { "captureId": "capture-037", "sourceType": "push_notification", "provider": "fictional-ledger-app", "capturedAt": "2026-09-29T13:00:00Z", "rawText": "Pending authorization: USD 10.00 at Open Bowl on 2026-09-29T12:55:00Z.", "metadata": { "externalId": "push-037" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 1000, "currency": "USD", "occurredAt": "2026-09-29T12:55:00Z", "merchantText": "Open Bowl", "kind": "purchase", "evidence": [{ "field": "amount", "excerpt": "USD 10.00" }] }, "inferred": {} } }
+    },
+    {
+      "id": "unlinked-finalized-usd",
+      "capture": { "captureId": "capture-038", "sourceType": "email", "provider": "fictional-ledger-mail", "capturedAt": "2026-09-29T13:02:00Z", "rawText": "Transaction finalized: USD 10.00 at Open Bowl on 2026-09-29T12:55:00Z.", "metadata": { "externalId": "mail-038" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 1000, "currency": "USD", "occurredAt": "2026-09-29T12:55:00Z", "merchantText": "Open Bowl", "kind": "purchase", "evidence": [{ "field": "amount", "excerpt": "USD 10.00" }] }, "inferred": {} } }
+    },
+    {
+      "id": "card-limit-is-not-a-transaction",
+      "capture": {
+        "captureId": "capture-030",
+        "sourceType": "fixture",
+        "capturedAt": "2026-09-03T10:00:00Z",
+        "rawText": "Your daily card limit is EUR 3000.",
+        "metadata": {
+          "externalId": "fixture-030",
+          "channel": "synthetic"
+        }
+      },
+      "expected": {
+        "outcome": "no_candidate",
+        "reason": "A card limit is monetary information, not a financial event."
+      }
+    },
+    {
+      "id": "wallet-conflict-email",
+      "capture": { "captureId": "capture-039", "sourceType": "email", "provider": "fictional-ledger-mail", "capturedAt": "2026-09-30T09:01:00Z", "rawText": "Purchase confirmed: EUR 5.00 at Wallet Conflict on 2026-09-30T09:00:00Z. Bank: North Example Bank; Account ending 1111.", "metadata": { "externalId": "mail-039", "transactionReference": "txn-wallet-conflict", "institutionName": "North Example Bank", "accountReference": "north-account-1111" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 500, "currency": "EUR", "occurredAt": "2026-09-30T09:00:00Z", "merchantText": "Wallet Conflict", "kind": "purchase", "fundingSource": { "institution": "North Example Bank", "account": "••1111" }, "evidence": [{ "field": "account", "excerpt": "Account ending 1111", "origin": "text" }] }, "inferred": {} } }
+    },
+    {
+      "id": "wallet-conflict-push",
+      "capture": { "captureId": "capture-040", "sourceType": "push_notification", "provider": "fictional-ledger-app", "capturedAt": "2026-09-30T09:01:03Z", "rawText": "Purchase confirmed: EUR 5.00 at Wallet Conflict on 2026-09-30T09:00:00Z. Bank: North Example Bank; Account ending 2222.", "metadata": { "externalId": "push-040", "transactionReference": "txn-wallet-conflict", "institutionName": "North Example Bank", "accountReference": "north-account-2222" } },
+      "expected": { "outcome": "candidate", "candidate": { "status": "detected", "sourceFacts": { "amountMinor": 500, "currency": "EUR", "occurredAt": "2026-09-30T09:00:00Z", "merchantText": "Wallet Conflict", "kind": "purchase", "fundingSource": { "institution": "North Example Bank", "account": "••2222" }, "evidence": [{ "field": "account", "excerpt": "Account ending 2222", "origin": "text" }] }, "inferred": {} } }
+    }
+  ]
+}
