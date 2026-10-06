@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pennywise fictional finance demo
 
-## Getting Started
+A browser-local demo for reviewing activity detected from fictional financial notices. Pennywise keeps its visual style across a focused Overview dashboard and dedicated Transactions, Review & approvals, Flow details, and Workspace guide pages. The notification bell offers a compact review preview with quick actions.
 
-First, run the development server:
+This project has no backend, database, live bank connection, or live exchange rates. Detected net flow is inflow minus outflow from the notices in view; it is not an account balance or complete spending history. Demo decisions are saved in `localStorage` in the current browser profile.
+
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Node.js 22.18 or newer is recommended so the dependency-free TypeScript domain tests can run.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Use the sidebar to move between `/`, `/transactions`, `/review`, `/reports`, and `/demo`. Source scope, week, reporting currency, and decisions remain shared across the pages. Features marked Soon remain unavailable.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Transactions shows the selected week by default. Use Choose dates to select an inclusive start/end range; its event list and net flow follow that range. Search and type filters narrow the list further. Choosing a week returns to the shared week selection.
 
-## Learn More
+## Check the implementation
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm test
+npx next typegen
+npx tsc --noEmit
+npm run lint
+npx next build --webpack
+git diff --check
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The 61 domain and fixture tests cover parser outcomes, event identity, duplicate decisions, corrections and undo, fictional currency conversion, review readiness, UTC periods, and source scope. They do not establish browser accessibility or interaction correctness.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [docs/demo-behavior.md](docs/demo-behavior.md) for the behavior contract, fixture checkpoints, and a short presentation walkthrough. The reusable domain, parser, fixtures, and tests originate from source commit `a9f19a5dd74766127e194d639e76bc479b6fb8f2`.

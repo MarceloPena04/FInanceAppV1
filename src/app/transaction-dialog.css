@@ -1,0 +1,113 @@
+.transaction-dialog {
+  position: fixed;
+  width: min(calc(100% - 2rem), 43rem);
+  max-width: 43rem;
+  max-height: min(90dvh, 58rem);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #cbd9df;
+  border-radius: 1.5rem;
+  background: #f8fbfb;
+  color: #162235;
+  box-shadow: 0 24px 90px rgb(22 34 53 / 24%);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.transaction-dialog::backdrop { background: rgb(22 34 53 / 42%); backdrop-filter: blur(3px); }
+.transaction-dialog[open] { animation: pennywise-dialog-enter 180ms ease-out both; }
+.transaction-dialog[open][data-closing="true"] { animation: pennywise-dialog-exit 180ms ease-in both; pointer-events: none; }
+.transaction-sheet-content { padding: 1.6rem; }
+.transaction-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.transaction-eyebrow { margin-bottom: 0.3rem; color: #087f73; font-size: 0.65rem; font-weight: 750; letter-spacing: 0.14em; text-transform: uppercase; }
+.transaction-dialog h2 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.04em; overflow-wrap: anywhere; }
+.transaction-dialog h3 { font-size: 0.8rem; font-weight: 750; }
+.transaction-close { display: grid; flex: none; width: 2.75rem; height: 2.75rem; place-items: center; border-radius: 0.8rem; background: #edf2f5; color: #536276; }
+.transaction-date { margin-top: 0.3rem; color: #718096; font-size: 0.72rem; }
+.transaction-status-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
+.transaction-status-row span { padding: 0.25rem 0.55rem; border-radius: 1rem; background: #edf2f5; color: #536276; font-size: 0.65rem; font-weight: 650; }
+.transaction-status-row [data-status="pending"] { background: #fff0db; color: #91642d; }
+.transaction-status-row [data-status="confirmed"] { background: #d8eeeb; color: #087f73; }
+.transaction-status-row [data-status="excluded"] { background: #e7edf1; color: #66758a; }
+.transaction-value { margin: 1rem 0; }
+.transaction-value > p { font-size: 1.65rem; font-weight: 650; letter-spacing: -0.045em; }
+.transaction-value > p > span { font-size: 1.1rem; color: #087f73; }
+.transaction-value > span, .transaction-value > small { display: block; margin-top: 0.2rem; color: #718096; font-size: 0.7rem; }
+.transaction-attention-text { color: #91642d !important; }
+.transaction-value-note { margin: 1rem 0; color: #91642d; }
+.transaction-origin { padding: 1rem; border: 1px solid #d7e4e8; border-radius: 1rem; background: #edf3f6; }
+.transaction-origin > p { margin-top: 0.3rem; font-weight: 650; }
+.transaction-origin > small { display: block; margin-top: 0.25rem; color: #718096; font-size: 0.7rem; }
+.transaction-neutral, .transaction-guidance, .transaction-discard-warning { margin-top: 1rem; padding: 1rem; border: 1px solid #c8dedd; border-radius: 1rem; background: #edf6f5; }
+.transaction-neutral p, .transaction-guidance p, .transaction-discard-warning p { margin-top: 0.35rem; color: #536276; }
+.transaction-neutral .transaction-button { margin-top: 0.8rem; }
+.transaction-guidance, .transaction-discard-warning { border-color: #edd2c6; background: #fff5ef; }
+.transaction-guidance h3 { display: flex; align-items: center; gap: 0.45rem; color: #936339; }
+.transaction-guidance ul { margin-top: 0.35rem; padding-left: 1.1rem; list-style: disc; color: #936339; font-size: 0.74rem; }
+.transaction-guidance p { font-size: 0.7rem; }
+.transaction-editor { margin-top: 1.3rem; padding-top: 1.1rem; border-top: 1px solid #dce5e9; }
+.transaction-detail-note { margin-top: 0.3rem; color: #718096; font-size: 0.71rem; }
+.transaction-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 0.85rem; margin-top: 1rem; }
+.transaction-field { display: block; min-width: 0; color: #536276; font-size: 0.7rem; font-weight: 700; }
+.transaction-field > label { display: block; }
+.transaction-field input:not([type="checkbox"]), .transaction-field select { display: block; width: 100%; min-width: 0; min-height: 2.7rem; margin-top: 0.3rem; padding: 0.55rem 0.75rem; border: 1px solid #cbd9df; border-radius: 0.7rem; background: #f1f5f7; color: #162235; font-size: 0.8rem; font-weight: 500; }
+.transaction-field-attention input:not([type="checkbox"]), .transaction-field-attention select { border-color: #d5a369; background: #fff8ec; }
+.transaction-field small { display: block; margin-top: 0.3rem; color: #8290a1; font-size: 0.65rem; font-weight: 400; }
+.transaction-field-error { display: block; margin-top: 0.3rem; color: #ba5545; font-size: 0.7rem; font-weight: 600; }
+.transaction-field [aria-invalid="true"] { border-color: #d56654 !important; background: #fff5f2 !important; }
+.transaction-checkbox { display: flex !important; align-items: flex-start; gap: 0.5rem; margin-top: 0.5rem; padding-block: 0.3rem; color: #536276; font-size: 0.7rem; font-weight: 500; cursor: pointer; }
+.transaction-checkbox input { flex: none; width: 1rem; height: 1rem; margin-top: 0.1rem; accent-color: #087f73; }
+.transaction-evidence-check { margin-top: 1rem; padding: 0.7rem; border-radius: 0.7rem; background: #fff5ef; }
+.transaction-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1rem; }
+.transaction-button { display: inline-flex; min-height: 2.6rem; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.55rem 0.8rem; border: 1px solid #cbd9df; border-radius: 0.7rem; background: #f1f5f7; color: #536276; font-size: 0.71rem; font-weight: 750; transition: background 120ms, border-color 120ms; }
+.transaction-button:hover:not(:disabled) { border-color: #8fbfba; background: #e3efee; }
+.transaction-button-primary { border-color: #087f73; background: #087f73; color: #fff; }
+.transaction-button-primary:hover:not(:disabled) { border-color: #06695f; background: #06695f; }
+.transaction-button-danger { border-color: #d56654; background: #d56654; color: #fff; }
+.transaction-button-danger:hover:not(:disabled) { border-color: #bd5545; background: #bd5545; }
+.transaction-button-quiet { border-color: transparent; background: transparent; font-weight: 600; }
+.transaction-button:disabled { opacity: 0.42; cursor: not-allowed; }
+.transaction-dialog :where(button, input, select, summary):focus-visible { outline: 2px solid #087f73; outline-offset: 3px; }
+.transaction-undo-fields { margin-top: 0.9rem; color: #8290a1; font-size: 0.65rem; }
+.transaction-undo-fields .transaction-buttons { gap: 0.25rem; margin-top: 0.2rem; }
+.transaction-undo-fields .transaction-button { min-height: 2.3rem; padding: 0.35rem 0.45rem; font-size: 0.65rem; }
+.transaction-unsaved-note { margin-top: 0.7rem; color: #8290a1; font-size: 0.7rem; }
+.transaction-action-error { margin-top: 0.7rem; color: #ba5545; font-size: 0.73rem; font-weight: 650; }
+.transaction-review-actions { padding-top: 1rem; border-top: 1px solid #dce5e9; }
+.transaction-detail-section { margin-top: 1rem; padding: 0.85rem 1rem; border: 1px solid #d7e4e8; border-radius: 1rem; background: #f1f5f7; }
+.transaction-detail-section > summary { cursor: pointer; font-size: 0.76rem; font-weight: 750; }
+.transaction-detail-section > p { margin-top: 0.5rem; font-size: 0.73rem; }
+.transaction-detail-section > .transaction-button { margin-top: 0.75rem; }
+.transaction-duplicate { border-color: #edd2c6; background: #fff8f4; }
+.transaction-comparison { margin-top: 0.7rem; padding: 0.7rem; border: 1px solid #dce5e9; border-radius: 0.7rem; background: #f8fbfb; }
+.transaction-comparison > small { display: block; margin-top: 0.5rem; color: #718096; font-size: 0.65rem; }
+.transaction-source-notices { margin-top: 0.65rem; font-size: 0.7rem; overflow-wrap: anywhere; }
+.transaction-source-notice + .transaction-source-notice { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #dce5e9; }
+.transaction-source-notice > p > span { color: #8290a1; font-size: 0.65rem; }
+.transaction-source-notice ul { margin-top: 0.4rem; color: #536276; }
+.transaction-source-notice li { margin-top: 0.2rem; }
+.transaction-source-notice li > span { font-weight: 650; }
+.transaction-provenance { margin-top: 0.4rem; color: #8290a1; font-size: 0.65rem; }
+.transaction-history { margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid #dce5e9; }
+.transaction-history li { margin-top: 0.5rem; font-size: 0.7rem; overflow-wrap: anywhere; }
+.transaction-history li > b { color: #087f73; text-transform: capitalize; }
+.transaction-history li > p { color: #536276; }
+.transaction-history details { margin-top: 0.2rem; color: #8290a1; font-size: 0.65rem; }
+.transaction-history details > summary { cursor: pointer; }
+.transaction-history details > p { margin-top: 0.3rem; }
+@keyframes pennywise-dialog-enter { from { opacity: 0; transform: translateY(0.6rem) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes pennywise-dialog-exit { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(0.6rem) scale(0.99); } }
+@media (max-width: 640px) {
+  .transaction-dialog { inset: auto 0 0; width: 100%; max-width: none; max-height: 92dvh; margin: 0; padding-bottom: env(safe-area-inset-bottom); border-radius: 1.5rem 1.5rem 0 0; border-bottom: 0; }
+  .transaction-sheet-content { padding: 1.25rem; }
+  .transaction-dialog[open] { animation-name: pennywise-sheet-enter; }
+  .transaction-dialog[open][data-closing="true"] { animation-name: pennywise-sheet-exit; }
+  .transaction-editor-grid { gap: 0.8rem; }
+  .transaction-field input:not([type="checkbox"]), .transaction-field select { font-size: 1rem; }
+  .transaction-button { min-height: 2.75rem; }
+}
+@media (max-width: 380px) { .transaction-editor-grid { grid-template-columns: 1fr; } .transaction-value > p { font-size: 1.45rem; } }
+@keyframes pennywise-sheet-enter { from { opacity: 0.8; transform: translateY(1.5rem); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pennywise-sheet-exit { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(1.5rem); } }
+@media (prefers-reduced-motion: reduce) { .transaction-dialog, .transaction-button { animation: none !important; transition: none !important; } }

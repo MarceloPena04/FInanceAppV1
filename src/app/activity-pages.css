@@ -1,0 +1,46 @@
+.transactions-panel { width: 100%; }
+.transactions-panel > .section-heading { flex-wrap: wrap; }
+.transaction-counts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; font-size: 10px; line-height: 1.5; }
+.transaction-counts .count-pill { font-size: 10px; }
+.transaction-counts .count-pill > span { color: #8290a1; }
+.transaction-counts__week { color: #657286; }
+.transaction-counts__week b { color: #087f73; font-weight: 650; }
+.transactions-toolbar { position: sticky; top: 0; z-index: 15; margin: 20px -8px 0; padding: 12px 8px; border-bottom: 1px solid #dce4e9; background: #f1f5f7; }
+.transactions-toolbar__scope { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
+.transactions-toolbar__scope > .page-scope-controls { flex: 1 1 360px; margin-bottom: 0; }
+.transactions-period-controls { display: flex; flex: 1 1 420px; align-items: end; flex-wrap: wrap; gap: 12px; }
+.transactions-period-controls .page-scope-controls { flex: 1 1 200px; margin-bottom: 0; }
+.transactions-period-controls .source-selector { max-width: 350px; }
+.transactions-toolbar__net { display: flex; flex-direction: column; flex: 0 0 auto; gap: 4px; color: #718096; font-size: 10px; }
+.transactions-toolbar__net b { color: #162235; font-size: 17px; font-weight: 650; letter-spacing: -.04em; }
+.transactions-toolbar__net b[data-positive="true"] { color: #087f73; }
+.route-loading { margin: 14px 0; color: #718096; font-size: 11px; }
+.review-page-intro { display: flex; flex-direction: column; gap: 18px; margin-bottom: 20px; }
+.review-page-intro > p { max-width: 610px; color: #657286; font-size: 12px; line-height: 1.7; }
+.review-page-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.review-page-stat { display: flex; align-items: center; gap: 14px; padding: 18px; border: 1px solid #cbd9df; border-radius: 14px; background: #f1f5f7; color: #657286; }
+.review-page-stat--ready { background: #edf6f5; border-color: #c8dedd; color: #087f73; }
+.review-page-stat--attention { background: #fff5f2; border-color: #e8d3cb; color: #bc6856; }
+.review-page-stat > svg { flex-shrink: 0; }
+.review-page-stat b { display: block; font-size: 26px; line-height: 1.1; font-weight: 600; letter-spacing: -.04em; }
+.review-page-stat span { display: block; margin-top: 7px; color: #657286; font-size: 11px; }
+.review-page-scope { margin: 20px 0 12px; color: #718096; font-size: 11px; }
+.review-coverage--visible h3 { margin: 0; color: #536276; font-size: 11px; font-weight: 600; }
+.review-page .needs-review-panel { margin-bottom: 0; }
+@media (max-width: 700px) {
+  .review-page-summary { gap: 9px; }
+  .review-page-stat { gap: 9px; padding: 14px 12px; }
+  .review-page-stat > svg { display: none; }
+  .review-page-stat b { font-size: 23px; }
+  .review-page-stat span { font-size: 10px; line-height: 1.5; }
+  .transactions-toolbar__scope > .page-scope-controls { flex-basis: 100%; }
+  .transactions-toolbar__net { flex-direction: row; align-items: baseline; gap: 9px; }
+}
+@media (max-width: 420px) {
+  .review-page-summary { grid-template-columns: 1fr; }
+  .review-page-stat { padding: 12px 15px; }
+  .review-page-stat > svg { display: block; }
+  .review-page-stat > div { display: flex; align-items: center; flex: 1; gap: 12px; }
+  .review-page-stat b { min-width: 22px; }
+  .review-page-stat span { margin: 0; font-size: 11px; }
+}

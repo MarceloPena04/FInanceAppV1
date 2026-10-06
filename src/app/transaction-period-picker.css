@@ -1,0 +1,39 @@
+.transaction-period-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.range-picker-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 33px; padding: 7px 9px; border: 1px solid #d8e3e8; border-radius: 8px; color: #087f73; background: #edf6f5; font-size: 10px; font-weight: 600; }
+.range-picker-trigger > svg { flex: none; }
+.range-picker-trigger:hover:not(:disabled) { background: #d8eeeb; }
+.range-picker-trigger:disabled { opacity: .5; }
+.range-calendar-dialog { position: fixed; inset: 0; width: min(620px, calc(100vw - 36px)); max-height: calc(100dvh - 36px); overflow-y: auto; margin: auto; padding: 22px; border: 1px solid #cbd9df; border-radius: 18px; background: #f8fbfb; color: #162235; box-shadow: 0 15px 45px rgb(22 34 53 / 20%); }
+.range-calendar-dialog::backdrop { background: rgb(22 34 53 / 28%); }
+.range-calendar-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.range-calendar-heading h2 { font-size: 17px; font-weight: 650; letter-spacing: -.03em; }
+.range-calendar-heading p { margin-top: 6px; color: #718096; font-size: 11px; }
+.range-calendar-heading .icon-button { flex: none; width: 30px; height: 30px; }
+.range-date-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 19px; }
+.range-date-inputs label { min-width: 0; padding: 10px 12px; border: 1px solid #d8e3e8; border-radius: 10px; background: #f1f6f7; color: #718096; font-size: 10px; }
+.range-date-inputs label[data-active="true"] { border-color: #91c9c0; background: #edf6f5; }
+.range-date-inputs input { display: block; width: 100%; min-width: 0; margin-top: 6px; background: transparent; color: #365267; font-size: 12px; font-weight: 600; }
+.range-calendar-navigation { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 20px 0 12px; }
+.range-calendar-navigation button { display: grid; width: 30px; height: 30px; flex: none; place-items: center; border-radius: 7px; color: #536276; }
+.range-calendar-navigation button:hover { background: #e4ecef; }
+.range-calendar-navigation p { color: #718096; font-size: 10px; text-align: center; }
+.range-calendars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.range-month h3 { margin-bottom: 14px; color: #365267; font-size: 12px; font-weight: 650; text-align: center; }
+.range-month__weekdays, .range-month__days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px 0; }
+.range-month__weekdays { margin-bottom: 6px; color: #8793a3; font-size: 9px; text-align: center; }
+.range-month__days button { height: 32px; border-radius: 7px; color: #536276; font-size: 11px; }
+.range-month__days button:hover { background: #d8eeeb; }
+.range-month__days button[data-inside="true"] { border-radius: 0; background: #edf6f5; color: #087f73; }
+.range-month__days button[data-endpoint="true"] { background: #087f73; color: white; font-weight: 700; }
+.range-calendar-error { margin-top: 14px; color: #b55442; font-size: 11px; }
+.range-calendar-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e3e8ee; }
+.range-calendar-apply { background: #087f73; border-color: #087f73; color: white; }
+.range-calendar-apply:hover:not(:disabled) { background: #076b61; }
+@media (max-width: 600px) {
+  .range-calendar-dialog { padding: 18px; }
+  .range-calendars { grid-template-columns: minmax(0, 1fr); }
+  .range-month + .range-month { display: none; }
+  .range-date-inputs label { padding: 9px; }
+  .range-date-inputs input { font-size: 11px; }
+  .range-picker-trigger { max-width: 100%; }
+}
