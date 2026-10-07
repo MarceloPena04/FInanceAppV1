@@ -1,0 +1,2 @@
+.auth-loading { display: flex; min-height: 100dvh; align-items: center; justify-content: center; flex-direction: column; gap: 18px; padding: 24px; color: #536276; font-size: 14px; }
+.auth-loading .brand-mark { width: 48px; height: 48px; border-radius: 15px; }

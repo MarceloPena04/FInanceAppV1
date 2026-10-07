@@ -2,6 +2,15 @@
 .sidebar-nav a:hover { background: #e3eaee; }
 .sidebar-nav a.is-active, .sidebar-nav a.is-active:hover { color: #087f73; background: #d8eeeb; }
 .sidebar-nav a > svg { flex: none; }
+.sidebar-account { margin-top: auto; padding-top: 28px; }
+.sidebar-account .sidebar-profile { margin-top: 0; }
+.sidebar-account .sidebar-profile > div { flex: none; }
+.sidebar-account .sidebar-profile > p { min-width: 0; }
+.sidebar-account .sidebar-profile b, .sidebar-account .sidebar-profile span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-sign-out { display: flex; align-items: center; gap: 9px; width: 100%; padding: 10px 12px; margin-top: 13px; border: 1px solid #cbd9df; border-radius: 9px; color: #536276; font-size: 12px; font-weight: 600; text-align: left; }
+.sidebar-sign-out:hover:not(:disabled) { background: #d8eeeb; color: #087f73; }
+.sidebar-sign-out:disabled { opacity: .6; }
+.sidebar-auth-error { margin-top: 10px; color: #a64436; font-size: 11px; line-height: 1.6; }
 .sidebar-demo-card > a { display: flex; align-items: center; gap: 5px; margin-top: 12px; color: #087f73; font-size: 11px; font-weight: 700; text-decoration: none; }
 .sidebar-demo-card > a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .notification-anchor { position: relative; }

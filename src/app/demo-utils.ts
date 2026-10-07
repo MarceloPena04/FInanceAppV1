@@ -40,9 +40,9 @@ function isScenario(value: unknown): value is ScenarioState {
       && record.sourceCandidates.every(candidate => candidate?.sourceFacts && Array.isArray(candidate.sourceFacts.evidence)));
 }
 
-export function loadScenario(): { state: ScenarioState; notice?: string } {
+export function loadScenario(storageKey = STORAGE_KEY): { state: ScenarioState; notice?: string } {
   let saved: string | null;
-  try { saved = localStorage.getItem(STORAGE_KEY); }
+  try { saved = localStorage.getItem(storageKey); }
   catch { return { state: seededScenario(), notice: "Saving is unavailable. Changes will last for this session." }; }
   try {
     if (!saved) return { state: seededScenario() };

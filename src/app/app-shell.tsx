@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Bell, ChartNoAxesCombined, Check, ChevronRight, CircleHelp, ClipboardCheck, CreditCard, LayoutDashboard, Menu, Settings, Sparkles, Tags, Wallet, X } from "lucide-react";
+import { Bell, ChartNoAxesCombined, Check, ChevronRight, CircleHelp, ClipboardCheck, CreditCard, LayoutDashboard, LogOut, Menu, Settings, Sparkles, Tags, Wallet, X } from "lucide-react";
+import { useAuth } from "../auth/provider";
+import { getAuthErrorMessage } from "../auth/types";
 import { SUPPORTED_REPORTING_CURRENCIES } from "../domain/reporting-currency";
 import { attentionReasons } from "../domain/review-queue";
 import { effectiveValues } from "../domain/transaction-lifecycle";
@@ -20,9 +22,13 @@ const workspaceLinks = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { session, signOut, mode } = useAuth();
   const { state, setState, loaded, savingAvailable, currency, queue, sourceLabel, confirmSelection, announce } = useDemo();
   const [mobileNav, setMobileNav] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
   const navRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -31,6 +37,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const previousPathRef = useRef(pathname);
   const currentPage = workspaceLinks.find(item => item.href === pathname);
   const title = currentPage?.title ?? (pathname === "/demo" ? "Workspace guide" : "Your workspace");
+  const profileName = session?.user.name ?? "Your workspace";
+  const initials = profileName.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
   const previewReasons = new Set<string>();
   const attentionPreviews = queue.needsAttention.filter(record => {
     const reason = attentionReasons(record, state.records)[0] ?? "Check details";
@@ -54,6 +62,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const openReviewPreview = (id: string) => {
     closeNotifications();
     if (pathname === "/review") requestAnimationFrame(() => document.getElementById(`review-record-${id}`)?.focus({ preventScroll: true }));
+  };
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutError("");
+    try {
+      await signOut();
+      router.replace("/login");
+    } catch (error) {
+      setSignOutError(getAuthErrorMessage(error));
+      setSigningOut(false);
+    }
   };
 
   useEffect(() => {
@@ -142,7 +162,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <p className="eyebrow sidebar-caption sidebar-caption--manage">Manage</p>
         <nav className="sidebar-nav" aria-label="Guide and settings"><button disabled><Settings size={17} />Settings<span>Soon</span></button><Link href="/demo" className={pathname === "/demo" ? "is-active" : undefined} aria-current={pathname === "/demo" ? "page" : undefined} onClick={() => closeNavigation(mobileNav && pathname === "/demo")}><CircleHelp size={17} />Workspace guide</Link></nav>
-        <div className="sidebar-profile"><div>PW</div><p><b>Your workspace</b><span>{savingAvailable ? "Changes saved" : "Saving unavailable"}</span></p></div>
+        <div className="sidebar-account">
+          <div className="sidebar-profile"><div aria-hidden="true">{initials}</div><p><b title={profileName}>{profileName}</b><span title={session?.user.email}>{session?.user.email}</span><span>{savingAvailable ? "Changes saved" : "Saving unavailable"}{mode === "mock" ? " · Demo" : ""}</span></p></div>
+          <button type="button" className="sidebar-sign-out" disabled={signingOut} onClick={handleSignOut}><LogOut size={15} aria-hidden="true" />{signingOut ? "Signing out…" : "Sign out"}</button>
+          {signOutError && <p className="sidebar-auth-error" role="alert">{signOutError}</p>}
+        </div>
       </aside>
 
       <main ref={contentRef} className="pennywise-content" aria-busy={!loaded}>

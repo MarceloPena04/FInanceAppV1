@@ -44,8 +44,8 @@ export function useDemo() {
   return value;
 }
 
-// The root layout retains this workspace while Next.js switches between pages.
-export function DemoProvider({ children }: { children: ReactNode }) {
+// The auth boundary retains this account's workspace between page visits.
+export function DemoProvider({ children, storageKey = STORAGE_KEY }: { children: ReactNode; storageKey?: string }) {
   const [state, setState] = useState<ScenarioState>(seededScenario);
   const [loaded, setLoaded] = useState(false);
   const [savingAvailable, setSavingAvailable] = useState(true);
@@ -61,16 +61,16 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      const restored = loadScenario();
+      const restored = loadScenario(storageKey);
       setState(restored.state);
       if (restored.notice) setAnnouncement(restored.notice);
       setLoaded(true);
     });
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [storageKey]);
   useEffect(() => {
     if (!loaded) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    try { localStorage.setItem(storageKey, JSON.stringify(state)); }
     catch {
       const frame = requestAnimationFrame(() => {
         setSavingAvailable(false);
@@ -78,7 +78,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       });
       return () => cancelAnimationFrame(frame);
     }
-  }, [state, loaded]);
+  }, [state, loaded, storageKey]);
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog || !selectedId) return;
